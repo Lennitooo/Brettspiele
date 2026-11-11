@@ -196,6 +196,14 @@ button.primary:hover:not(:disabled) { background-color: var(--gelb-tief); }
 }
 #zuege .nr { color: var(--tinte-leise); }
 #zuege:empty::before { content: "Noch keine Züge"; color: var(--tinte-leise); grid-column: 1 / -1; }
+#zuege .zm { cursor: pointer; border-radius: 3px; padding: 0 4px; }
+#zuege .zm:hover { background: var(--gelb); }
+#zuege .zm.aktiv { background: var(--marine); color: var(--papier); }
+
+/* Partie durchblättern */
+.zugnav { display: flex; gap: 6px; }
+.zugnav button { font-size: 1.1rem; line-height: 1; padding: 6px; min-height: 40px; }
+#status.rueckblick { color: var(--marine); font-size: 1.1rem; }
 
 #promo {
   position: fixed; inset: 0; background: rgba(0, 0, 0, .72); display: none;

@@ -6,6 +6,8 @@
   const pieceSrc = p => 'pieces/' + (E.isWhite(p) ? 'w' : 'b') + p.toUpperCase() + '.svg';
 
   let cur, history, legalNow, selected, mode, human, flipped, thinking, endText, pendingPromo, gameId = 0;
+  let viewN = null;        // Rückblick: Anzahl angesehener Halbzüge (null = aktuelle Stellung)
+  let reviewAnim = false;  // beim Vor-/Zurückblättern den Zug animieren
   let zugAnim = null;      // { from, to } des zu animierenden Zugs, einmal von render() verbraucht
   let net = null;          // Online-Zustand { myColor, aktiv } oder null (= lokal)
   let onLocalMove = null;  // online: nach eigenem Zug Zustand senden
@@ -97,6 +99,7 @@
   }
 
   function onSquare(sq) {
+    if (viewN !== null) { gehe(history.length); return; }   // aus dem Rückblick zurück zur Partie
     if (endText || thinking || pendingPromo) return;
     if (mode === 'ki' && cur.turn !== human) return;
     if (mode === 'online' && (!net || !net.aktiv || cur.turn !== net.myColor)) return;
@@ -201,6 +204,7 @@
   }
 
   function render() {
+    viewN = null;   // jeder normale Aufbau zeigt die aktuelle Stellung
     const last = history.length ? history[history.length - 1].move : null;
     const targets = selected === null ? [] : legalNow.filter(m => m.from === selected).map(m => m.to);
     const checkSq = (!endText || endText.startsWith('Schachmatt')) && E.inCheck(cur, cur.turn)
@@ -263,18 +267,82 @@
       '<small>Weiß schlug</small><div class="reihe">' + lost('b') + '</div>' +
       '<small>Schwarz schlug</small><div class="reihe">' + lost('w') + '</div>';
 
-    // Zugliste
+    renderZuege(null);
+    updateNav();
+
+    $('zurueck').disabled = thinking || !history.length || !!net;
+    $('farbeWrap').style.display = $('stufeWrap').style.display = $('mode').value === 'ki' ? '' : 'none';
+  }
+
+  // ---------- Partie durchblättern (Rückblick) ----------
+  // Zugliste bauen; jeder Zug ist anklickbar, der gerade angesehene ist hervorgehoben.
+  function renderZuege(aktiv) {
     let z = '';
     for (let i = 0; i < history.length; i += 2) {
-      z += '<span class="nr">' + (i / 2 + 1) + '.</span><span>' + history[i].san + '</span><span>' +
-        (history[i + 1] ? history[i + 1].san : '') + '</span>';
+      z += '<span class="nr">' + (i / 2 + 1) + '.</span>';
+      z += '<span class="zm' + (aktiv === i + 1 ? ' aktiv' : '') + '" data-n="' + (i + 1) + '">' + history[i].san + '</span>';
+      if (history[i + 1]) z += '<span class="zm' + (aktiv === i + 2 ? ' aktiv' : '') + '" data-n="' + (i + 2) + '">' + history[i + 1].san + '</span>';
+      else z += '<span></span>';
     }
     const zl = $('zuege');
     zl.innerHTML = z;
     zl.scrollTop = zl.scrollHeight;
+  }
 
-    $('zurueck').disabled = thinking || !history.length || !!net;
-    $('farbeWrap').style.display = $('stufeWrap').style.display = $('mode').value === 'ki' ? '' : 'none';
+  function updateNav() {
+    const len = history.length, n = viewN === null ? len : viewN;
+    $('navAnfang').disabled = $('navZurueck').disabled = n === 0;
+    $('navVor').disabled = $('navEnde').disabled = n >= len;
+  }
+
+  // n = Anzahl angesehener Halbzüge (0 = Startstellung … len = aktuelle Stellung).
+  function gehe(n, anim) {
+    const len = history.length;
+    n = Math.max(0, Math.min(len, n));
+    if (n === len) { viewN = null; render(); return; }   // zurück zur laufenden Partie
+    reviewAnim = !!anim;
+    viewN = n;
+    renderReview();
+  }
+
+  function renderReview() {
+    const n = viewN;
+    const st = n >= history.length ? cur : history[n].state;
+    const b = st.board;
+    const last = n > 0 ? history[n - 1].move : null;
+    const checkSq = E.inCheck(st, st.turn) ? b.indexOf(st.turn === 'w' ? 'K' : 'k') : -1;
+    let html = '';
+    for (let i = 0; i < 64; i++) {
+      const sq = flipped ? 63 - i : i, p = b[sq], r = sq >> 3, c = sq & 7;
+      const cls = ['sq', (r + c) % 2 === 0 ? 'hell' : 'dunkel'];
+      if (last && (sq === last.from || sq === last.to)) cls.push('last');
+      if (sq === checkSq) cls.push('check');
+      html += '<div class="' + cls.join(' ') + '" data-sq="' + sq + '">';
+      const row = Math.floor(i / 8), col = i % 8;
+      if (col === 0) html += '<span class="coord rang">' + (8 - (sq >> 3)) + '</span>';
+      if (row === 7) html += '<span class="coord linie">' + 'abcdefgh'[sq & 7] + '</span>';
+      if (p !== '') html += '<img class="piece" src="' + pieceSrc(p) + '" alt="">';
+      html += '</div>';
+    }
+    $('board').innerHTML = html;
+
+    // Beim Vor-/Zurückblättern den angesehenen Zug kurz einrutschen lassen.
+    if (reviewAnim && last && window.Anim) {
+      const iFrom = flipped ? 63 - last.from : last.from, iTo = flipped ? 63 - last.to : last.to;
+      const cell = $('board').clientWidth / 8;
+      const dx = ((iFrom % 8) - (iTo % 8)) * cell, dy = ((iFrom >> 3) - (iTo >> 3)) * cell;
+      const cellEl = $('board').children[iTo], pic = cellEl && cellEl.querySelector('.piece');
+      if (pic) window.Anim.slide(pic, dx, dy);
+    }
+    reviewAnim = false;
+
+    const st2 = $('status');
+    st2.className = 'rueckblick';
+    st2.textContent = n === 0 ? 'Rückblick: Startstellung'
+      : 'Rückblick: ' + Math.ceil(n / 2) + '. Zug ' + (n % 2 ? 'Weiß' : 'Schwarz') + ' – ' + history[n - 1].san + '  (Zur Partie: ⏭)';
+
+    renderZuege(n);
+    updateNav();
   }
 
   $('board').addEventListener('click', e => {
@@ -283,9 +351,20 @@
   });
   $('neu').onclick = newGame;
   $('zurueck').onclick = undo;
-  $('drehen').onclick = () => { flipped = !flipped; render(); };
+  $('drehen').onclick = () => { flipped = !flipped; viewN !== null ? renderReview() : render(); };
   $('mode').onchange = newGame;
   $('farbe').onchange = newGame;
+
+  // Partie durchblättern
+  const jetzt = () => (viewN === null ? history.length : viewN);
+  $('navAnfang').onclick = () => gehe(0);
+  $('navZurueck').onclick = () => gehe(jetzt() - 1, true);
+  $('navVor').onclick = () => gehe(jetzt() + 1, true);
+  $('navEnde').onclick = () => gehe(history.length);
+  $('zuege').addEventListener('click', e => {
+    const el = e.target.closest('.zm');
+    if (el) gehe(+el.dataset.n);
+  });
 
   // Schnittstelle für die Online-Steuerung.
   window.SchachUI = {
