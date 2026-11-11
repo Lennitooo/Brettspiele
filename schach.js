@@ -109,7 +109,27 @@
     }
     const p = cur.board[sq];
     selected = (p !== '' && E.colorOf(p) === cur.turn && selected !== sq) ? sq : null;
-    render();
+    markiere();   // nur Markierungen ändern – Brett nicht neu aufbauen (sonst flackern die Figuren)
+  }
+
+  // Auswahl-/Zielmarkierungen auf dem bestehenden Brett aktualisieren, ohne die Figuren neu zu zeichnen.
+  function markiere() {
+    const board = $('board');
+    if (!board.children.length) { render(); return; }
+    const last = history.length ? history[history.length - 1].move : null;
+    const targets = selected === null ? [] : legalNow.filter(m => m.from === selected).map(m => m.to);
+    const checkSq = (!endText || endText.startsWith('Schachmatt')) && E.inCheck(cur, cur.turn)
+      ? cur.board.indexOf(cur.turn === 'w' ? 'K' : 'k') : -1;
+    for (let i = 0; i < 64; i++) {
+      const sq = flipped ? 63 - i : i, el = board.children[i];
+      el.classList.toggle('last', !!last && (sq === last.from || sq === last.to));
+      el.classList.toggle('sel', sq === selected);
+      el.classList.toggle('check', sq === checkSq);
+      const istZiel = targets.includes(sq);
+      const schlag = istZiel && (cur.board[sq] !== '' || (cur.board[selected] || '').toLowerCase() === 'p' && sq === cur.ep);
+      el.classList.toggle('ziel', istZiel);
+      el.classList.toggle('schlag', schlag);
+    }
   }
 
   function askPromo(ms) {
