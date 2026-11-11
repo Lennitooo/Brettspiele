@@ -1,0 +1,6 @@
+# Diese Dateien gehören nicht auf die öffentliche Seite (interne Doku, Design-/Testdateien).
+# Cloudflare lädt sie dann gar nicht erst als Web-Inhalte hoch.
+*.md
+test*.html
+.impeccable/
+.gitignore
