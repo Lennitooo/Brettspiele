@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mühle – Spielesammlung</title>
+  <meta name="theme-color" content="#d2451e">
+  <link rel="preload" href="fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="zurueck" href="index.html">Alle Spiele</a>
+    <h1>Mühle</h1>
+    <nav class="auth" id="authbar"></nav>
+  </header>
+  <main>
+    <div class="layout">
+      <div class="board-wrap">
+        <div id="board" class="muehle">
+          <svg viewBox="0 0 100 100" aria-hidden="true">
+            <rect x="8" y="8" width="84" height="84"/>
+            <rect x="22" y="22" width="56" height="56"/>
+            <rect x="36" y="36" width="28" height="28"/>
+            <line x1="50" y1="8" x2="50" y2="36"/>
+            <line x1="50" y1="64" x2="50" y2="92"/>
+            <line x1="8" y1="50" x2="36" y2="50"/>
+            <line x1="64" y1="50" x2="92" y2="50"/>
+          </svg>
+          <div id="punkte"></div>
+        </div>
+      </div>
+      <aside class="panel">
+        <div id="status"></div>
+        <div id="zaehler" class="zaehler"></div>
+        <div class="row">
+          <label class="f">Modus
+            <select id="mode">
+              <option value="ki">Gegen KI</option>
+              <option value="zwei">Zu zweit (lokal)</option>
+              <option value="online">Online gegen Freund</option>
+            </select>
+          </label>
+          <label class="f" id="farbeWrap">Du spielst
+            <select id="farbe">
+              <option value="w">Weiß</option>
+              <option value="b">Schwarz</option>
+            </select>
+          </label>
+        </div>
+        <label class="f" id="stufeWrap">KI-Stärke
+          <select id="stufe">
+            <option value="1">Leicht</option>
+            <option value="2">Mittel</option>
+            <option value="3" selected>Schwer</option>
+            <option value="4">Sehr schwer</option>
+          </select>
+        </label>
+        <div id="onlineBox" style="display:none">
+          <div id="onlineInfo" class="onlineinfo"></div>
+          <button id="btnErstellen" class="primary">Partie erstellen</button>
+          <div id="onlineLinkWrap" style="display:none">
+            <label class="f">Link zum Teilen
+              <input id="onlineLink" type="text" readonly>
+            </label>
+            <button id="btnKopieren">Link kopieren</button>
+          </div>
+        </div>
+        <div class="row">
+          <button id="neu" class="primary">Neues Spiel</button>
+          <button id="zurueck">Zurück</button>
+        </div>
+        <div id="zuege"></div>
+        <details class="regeln">
+          <summary>Regeln</summary>
+          <p>Zuerst setzen beide abwechselnd ihre 9 Steine, danach wird entlang der Linien gezogen. Drei eigene Steine in einer Reihe bilden eine <b>Mühle</b>: dann darfst du einen gegnerischen Stein entfernen (Steine in einer Mühle sind geschützt). Mit nur noch 3 Steinen darfst du <b>springen</b>. Wer weniger als 3 Steine hat oder nicht mehr ziehen kann, verliert.</p>
+        </details>
+      </aside>
+    </div>
+  </main>
+  <script src="config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.js"></script>
+  <script src="auth.js"></script>
+  <script src="freunde.js"></script>
+  <script src="muehle-engine.js"></script>
+  <script src="anim.js"></script>
+  <script src="sound.js"></script>
+  <script src="muehle.js"></script>
+  <script src="online.js"></script>
+  <script>Online.init({ spiel: 'muehle', ui: window.MuehleUI, farben: { w: 'Weiß', b: 'Schwarz' } });</script>
+</body>
+</html>

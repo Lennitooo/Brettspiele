@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Spielesammlung – Brettspiele im Browser</title>
+  <meta name="description" content="Schach, Dame, Mühle und Vier gewinnt direkt im Browser: zu zweit, gegen die KI oder online gegen Freunde.">
+  <meta name="theme-color" content="#d2451e">
+  <link rel="preload" href="fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="deckel">
+  <div class="buehne">
+    <header class="top">
+      <nav class="auth" id="authbar"></nav>
+    </header>
+    <main class="deckelflaeche">
+      <div class="titel">
+        <h1>Spiele-<br>sammlung</h1>
+        <p id="untertitel">Direkt im Browser – offline oder online gegen Freunde.</p>
+      </div>
+      <div class="fenster">
+        <p class="stoerer" id="stoerer"></p>
+        <div class="grid" id="spieleGrid"></div>
+      </div>
+    </main>
+    <ul class="leiste">
+      <li><b>1–2</b> Spieler</li>
+      <li>gegen die <b>KI</b></li>
+      <li><b>online</b> gegen Freunde</li>
+      <li>ohne <b>Konto</b> spielbar</li>
+    </ul>
+  </div>
+  <section class="boden">
+    <h2>So wird gespielt</h2>
+    <dl class="arten">
+      <div><dt>Zu zweit</dt><dd>An einem Gerät, abwechselnd ziehen.</dd></div>
+      <div><dt>Gegen die KI</dt><dd>Vier Stärken von Leicht bis Sehr schwer.</dd></div>
+      <div><dt>Online</dt><dd>Anmelden, Partie erstellen und den Link an einen Freund schicken. Das Ergebnis zählt für die <a href="rangliste.html">Rangliste</a>.</dd></div>
+    </dl>
+  </section>
+
+  <script src="config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.js"></script>
+  <script src="auth.js"></script>
+  <script src="freunde.js"></script>
+  <script src="games-registry.js"></script>
+  <script>
+  (function () {
+    'use strict';
+    const spiele = window.SPIELE || [];
+    const esc = s => String(s).replace(/[&<>"]/g, c =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+    // Gezeichnete Bretter für die Fenster auf dem Deckel (Farben wie in style.css).
+    const HELL = '#f6ecc9', DUNKEL = '#4d78b0', TINTE = '#14294d', ROT = '#d2451e', GELB = '#f7d046';
+    const svg = inner => '<svg viewBox="0 0 100 100" aria-hidden="true">' + inner + '</svg>';
+    function karo() {
+      let r = '<rect width="100" height="100" fill="' + HELL + '"/>';
+      for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++)
+        if ((x + y) % 2) r += '<rect x="' + x * 25 + '" y="' + y * 25 + '" width="25" height="25" fill="' + DUNKEL + '"/>';
+      return r;
+    }
+    const figur = (name, x, y) => '<image href="pieces/' + name + '.svg" x="' + (x * 25 + 1) + '" y="' + (y * 25 + 1) + '" width="23" height="23"/>';
+    const stein = (cx, cy, hell, r) =>
+      '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="' + (hell ? '#fffaf0' : '#16233d') + '" stroke="' + TINTE + '" stroke-width="1.3"/>' +
+      '<circle cx="' + cx + '" cy="' + cy + '" r="' + (r - 3.2) + '" fill="none" stroke="' + (hell ? TINTE : '#fff') + '" stroke-opacity=".3" stroke-width="1.2"/>';
+    const BILD = {
+      schach: svg(karo() + figur('bK', 2, 0) + figur('bP', 3, 1) + figur('wN', 1, 2) + figur('wQ', 2, 3)),
+      dame: svg(karo() + stein(37.5, 12.5, false, 9) + stein(87.5, 12.5, false, 9) + stein(12.5, 37.5, false, 9) +
+        stein(37.5, 62.5, true, 9) + stein(12.5, 87.5, true, 9) + stein(62.5, 87.5, true, 9)),
+      muehle: svg('<rect width="100" height="100" fill="' + HELL + '"/>' +
+        '<g fill="none" stroke="#1d3f72" stroke-width="2.2"><rect x="12" y="12" width="76" height="76"/><rect x="28" y="28" width="44" height="44"/>' +
+        '<rect x="44" y="44" width="12" height="12"/><path d="M50 12v32M50 56v32M12 50h32M56 50h32"/></g>' +
+        stein(12, 12, false, 7) + stein(50, 12, true, 7) + stein(88, 50, false, 7) + stein(28, 28, true, 7) + stein(50, 72, true, 7) + stein(72, 72, false, 7)),
+      vier: (function () {
+        const belegt = { '0,3': ROT, '1,3': GELB, '2,3': ROT, '1,2': ROT, '2,2': GELB, '2,1': ROT };
+        let r = '<rect width="100" height="100" fill="#2b5ca8"/>';
+        for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++)
+          r += '<circle cx="' + (12.5 + x * 25) + '" cy="' + (12.5 + y * 25) + '" r="9.5" fill="' + (belegt[x + ',' + y] || TINTE) + '"/>';
+        return svg(r);
+      })()
+    };
+
+    document.getElementById('spieleGrid').innerHTML = spiele.map(s => {
+      const bald = s.status !== 'fertig';
+      const badge = s.online && !bald ? '<span class="badge">Online</span>' : '';
+      const inner =
+        '<div class="bild">' + (bald ? esc(s.icon || '') : (BILD[s.id] || esc(s.icon || ''))) + '</div>' +
+        '<div class="schild"><h2>' + esc(s.name) + '</h2>' +
+        '<small>' + esc(bald ? 'Bald' : (s.info || '')) + '</small></div>' + badge;
+      return bald
+        ? '<div class="card bald">' + inner + '</div>'
+        : '<a class="card" href="' + s.href + '">' + inner + '</a>';
+    }).join('');
+
+    const fertig = spiele.filter(s => s.status === 'fertig');
+    const namen = fertig.map(s => s.name);
+    if (namen.length > 1) {
+      document.getElementById('untertitel').textContent =
+        namen.slice(0, -1).join(', ') + ' und ' + namen[namen.length - 1] + '. Direkt im Browser – offline oder online gegen Freunde.';
+    }
+    const st = document.getElementById('stoerer');
+    if (fertig.length > 1) st.textContent = fertig.length + ' Spiele in einem Kasten';
+    else st.hidden = true;
+  })();
+  </script>
+</body>
+</html>

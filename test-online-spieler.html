@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Online-Test: ein Spieler</title>
+  <style>body { margin: 0; background: #1d130c; } #log { font: 12px Consolas, monospace; color: #f0cd7d; padding: 4px 8px; min-height: 16px; } iframe { width: 100%; height: 760px; border: 0; display: block; }</style>
+</head>
+<body>
+  <!-- Ein automatischer Spieler für test-online.html. Meldet sich mit einem Test-Konto an,
+       erstellt (Rolle a) oder betritt (Rolle b) eine Online-Partie und klickt feste Züge. -->
+  <div id="log">startet …</div>
+  <iframe id="spiel"></iframe>
+  <script src="config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.js"></script>
+  <script>
+  (async function () {
+    'use strict';
+    const q = new URLSearchParams(location.search);
+    const rolle = q.get('rolle'), spiel = q.get('spiel'), lauf = q.get('lauf');
+    const client = window.DB && window.DB.client;
+    const log = t => { document.getElementById('log').textContent = 'Spieler ' + rolle.toUpperCase() + ': ' + t; };
+    const melde = (ok, detail) => parent.postMessage({ typ: 'online-test', rolle: rolle, ok: ok, detail: detail }, '*');
+    // Jede Wartepause enthält eine echte Netzabfrage (an den lokalen Server), damit der Test im Echtzeit-Tempo läuft.
+    // Bewusst nicht über Supabase: dessen Anmelde-Sperre teilt sich diese Seite mit der Spielseite im iframe.
+    const tick = async () => {
+      try { await fetch('config.js?t=' + Date.now(), { cache: 'no-store' }); } catch (e) {}
+      await new Promise(r => setTimeout(r, 100));
+    };
+    async function warte(fn, n, was) {
+      for (let i = 0; i < n; i++) { if (fn()) return; await tick(); }
+      throw new Error('Zeitüberschreitung: ' + was);
+    }
+    const sq = n => '.sq[data-sq="' + ((8 - +n[1]) * 8 + 'abcdefgh'.indexOf(n[0])) + '"]';
+    const col = c => '.vcol[data-c="' + c + '"]';
+    const pt = p => '.mpunkt[data-p="' + p + '"]';
+    const ZUEGE = {
+      schach: { a: [[sq('e2'), sq('e4')], [sq('g1'), sq('f3')]], b: [[sq('e7'), sq('e5')]] },
+      vier:   { a: [[col(0)], [col(1)], [col(2)], [col(3)]], b: [[col(0)], [col(1)], [col(2)]] },
+      dame:   { a: [[sq('c3'), sq('d4')], [sq('d4'), sq('f6')]], b: [[sq('f6'), sq('e5')], [sq('g7'), sq('e5')]] },
+      muehle: { a: [[pt(0)], [pt(1)], [pt(2), pt(9)]], b: [[pt(9)], [pt(3)]] }
+    };
+    const FERTIG = {
+      schach: d => d.getElementById('zuege').children.length === 6,   // drei Halbzüge in der Zugliste
+      vier:   d => /gewinn/i.test(d.getElementById('status').textContent),
+      dame:   d => d.getElementById('zaehler').textContent === 'Weiß: 11 Steine · Schwarz: 11 Steine',
+      muehle: d => d.getElementById('zaehler').textContent.includes('Schwarz: 1 auf dem Brett, 7 zu setzen')
+    };
+
+    try {
+      if (!client) throw new Error('Supabase nicht eingerichtet');
+      const email = 'test-' + rolle + '-' + lauf + '@example.com', pw = 'test123456';
+      let r = await client.auth.signInWithPassword({ email: email, password: pw });
+      if (r.error) { r = await client.auth.signUp({ email: email, password: pw }); if (r.error) throw r.error; }
+      if (!r.data.session) throw new Error('keine Sitzung nach Anmeldung');
+      await client.from('profiles').upsert({ id: r.data.user.id, anzeigename: 'Test ' + rolle.toUpperCase() + ' ' + lauf });
+
+      const f = document.getElementById('spiel');
+      const ladeSpiel = url => new Promise(res => { f.onload = () => res(f.contentDocument); f.src = url; });
+      let d;
+      if (rolle === 'a') {
+        d = await ladeSpiel(spiel + '.html');
+        const s = d.getElementById('mode');
+        s.value = 'online';
+        s.dispatchEvent(new Event('change'));
+        await warte(() => d.getElementById('onlineInfo').textContent.includes('Erstelle'), 150, 'Erstellen-Knopf');
+        d.getElementById('btnErstellen').click();
+        await warte(() => d.getElementById('onlineLink').value.includes('partie='), 150, 'Partie-Link');
+      } else {
+        let pid = null;
+        for (let i = 0; i < 300 && !pid; i++) {
+          const p = await client.from('profiles').select('id').eq('anzeigename', 'Test A ' + lauf).maybeSingle();
+          if (p.data) {
+            const g = await client.from('partien').select('id').eq('weiss_id', p.data.id).eq('spiel', spiel).eq('status', 'offen').limit(1);
+            if (g.data && g.data.length) pid = g.data[0].id;
+          }
+          if (!pid) await tick();
+        }
+        if (!pid) throw new Error('Zeitüberschreitung: Partie des Gegners nicht gefunden');
+        d = await ladeSpiel(spiel + '.html?partie=' + pid);
+      }
+
+      const meine = ZUEGE[spiel][rolle];
+      let zug = 0;
+      for (let i = 0; i < 600; i++) {
+        const st = d.getElementById('status').textContent;
+        log('Schritt ' + i + ', eigene Züge ' + zug + '/' + meine.length + ', Status: ' + st + ' | ' + d.getElementById('onlineInfo').textContent);
+        if (FERTIG[spiel](d)) { log('fertig: ' + st); melde(true, st); return; }
+        if (zug < meine.length && st.includes('Du bist am Zug')) {
+          for (const sel of meine[zug]) d.querySelector(sel).click();
+          zug++;
+        }
+        await tick();
+      }
+      throw new Error('Zeitüberschreitung im Spiel (Zug ' + zug + ', Status: ' + d.getElementById('status').textContent +
+        ', Info: ' + d.getElementById('onlineInfo').textContent + ')');
+    } catch (e) {
+      log('FEHLER: ' + (e.message || e));
+      melde(false, e.message || String(e));
+    }
+  })();
+  </script>
+</body>
+</html>

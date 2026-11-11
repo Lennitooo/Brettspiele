@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Freunde – Spielesammlung</title>
+  <meta name="theme-color" content="#d2451e">
+  <link rel="preload" href="fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="zurueck" href="index.html">Alle Spiele</a>
+    <h1>Freunde</h1>
+    <nav class="auth" id="authbar"></nav>
+  </header>
+  <main>
+    <div class="blatt" id="freundeSeite">
+      <form id="suchForm" class="suche" autocomplete="off">
+        <label class="f">Freund suchen (Anzeigename)
+          <input type="text" id="suchFeld" placeholder="z.B. Lennart" maxlength="24">
+        </label>
+        <button type="submit" class="primary">Suchen</button>
+      </form>
+      <div id="suchErgebnis"></div>
+
+      <div id="anfragenEin"></div>
+
+      <h2>Deine Freunde</h2>
+      <div id="freundeListe"><p class="leer">Lade …</p></div>
+
+      <div id="anfragenAus"></div>
+    </div>
+  </main>
+
+  <!-- Herausfordern-Dialog -->
+  <div id="hfBox">
+    <div class="box">
+      <h2><span id="hfName"></span> herausfordern</h2>
+      <div class="row">
+        <label class="f">Spiel
+          <select id="hfSpiel"></select>
+        </label>
+        <label class="f">Du spielst
+          <select id="hfFarbe"></select>
+        </label>
+      </div>
+      <div class="row">
+        <button id="hfSenden" class="primary">Herausforderung senden</button>
+        <button id="hfAbbrechen">Abbrechen</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.js"></script>
+  <script src="auth.js"></script>
+  <script src="freunde.js"></script>
+</body>
+</html>

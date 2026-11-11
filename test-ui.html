@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Oberflächen-Tests – Brettspiele</title>
+  <style>
+    body { font-family: ui-monospace, Consolas, monospace; background: #1d130c; color: #f4e9d6; padding: 20px; }
+    .ok { color: #a7d06a; } .fehl { color: #ff9a8a; font-weight: 700; }
+    h1 { font-size: 1.2rem; } #summe { font-size: 1.1rem; margin: 12px 0; }
+    iframe { width: 1100px; height: 800px; border: 1px solid #5c4028; display: block; margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <h1>Oberflächen-Tests (klickt echte Züge durch)</h1>
+  <div id="summe">läuft …</div>
+  <div id="out"></div>
+  <script>
+  (async function () {
+    'use strict';
+    const out = document.getElementById('out');
+    let ok = 0, fehl = 0;
+    function melde(name, pass, msg) {
+      if (pass) ok++; else fehl++;
+      const d = document.createElement('div');
+      d.className = pass ? 'ok' : 'fehl';
+      d.textContent = (pass ? 'OK   ' : 'FEHL ') + name + (msg ? ' – ' + msg : '');
+      out.appendChild(d);
+    }
+    async function t(name, fn) {
+      try { const r = await fn(); melde(name, r === true, r === true ? '' : 'Ergebnis: ' + r); }
+      catch (e) { melde(name, false, 'Ausnahme: ' + e.message); }
+    }
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    function lade(url) {
+      return new Promise((res, rej) => {
+        const f = document.createElement('iframe');
+        f.onload = () => res(f);
+        f.onerror = () => rej(new Error('Laden fehlgeschlagen: ' + url));
+        f.src = url;
+        document.body.appendChild(f);
+      });
+    }
+    const sq = n => (8 - +n[1]) * 8 + 'abcdefgh'.indexOf(n[0]);
+    function modus(doc, wert) {
+      const s = doc.getElementById('mode');
+      s.value = wert;
+      s.dispatchEvent(new Event('change'));
+    }
+    const text = (doc, id) => doc.getElementById(id).textContent;
+
+    // ---------- Startseite ----------
+    await t('Startseite: vier spielbare Karten, keine „Bald"-Karte', async () => {
+      const d = (await lade('index.html')).contentDocument;
+      return d.querySelectorAll('a.card').length === 4 && d.querySelectorAll('.card.bald').length === 0;
+    });
+
+    // ---------- Vier gewinnt ----------
+    const vf = await lade('vier.html'), vd = vf.contentDocument;
+    const vKlick = c => vd.querySelector('.vcol[data-c="' + c + '"]').click();
+    await t('Vier: Brett mit 7 Spalten und 42 Feldern', async () => vd.querySelectorAll('.vcol').length === 7 && vd.querySelectorAll('.vzelle').length === 42);
+    await t('Vier: lokale Partie bis zum Sieg', async () => {
+      modus(vd, 'zwei');
+      [0, 0, 1, 1, 2, 2, 3].forEach(vKlick);
+      return text(vd, 'status').includes('Rot gewinnt') && vd.querySelectorAll('.vzelle.gewinn').length === 4 &&
+        vd.querySelectorAll('.scheibe').length === 7 && vd.getElementById('zuege').children.length === 12;
+    });
+    await t('Vier: nach Spielende keine Züge mehr', async () => { vKlick(5); return vd.querySelectorAll('.scheibe').length === 7; });
+    await t('Vier: Zurück nimmt einen Zug zurück', async () => { vd.getElementById('zurueck').click(); return vd.querySelectorAll('.scheibe').length === 6 && text(vd, 'status').includes('Rot ist am Zug'); });
+    await t('Vier: KI antwortet auf einen Zug', async () => {
+      modus(vd, 'ki');
+      vKlick(3);
+      await sleep(1500);
+      return vd.querySelectorAll('.scheibe').length === 2 && text(vd, 'status').includes('Rot ist am Zug');
+    });
+    await t('Vier: Online-Panel erscheint im Online-Modus', async () => {
+      modus(vd, 'online');
+      await sleep(1500);
+      return vd.getElementById('onlineBox').style.display !== 'none' && text(vd, 'onlineInfo').length > 5;
+    });
+
+    await t('Vier: Online-Schnittstelle, Verlierer erhält den Gewinnzug', async () => {
+      const ui = vf.contentWindow.VierUI;
+      const zuege = [0, 0, 1, 1, 2, 2].map(c => ({ c: c }));
+      ui.startOnline('b', zuege);
+      if (vd.querySelectorAll('.scheibe').length !== 6) return 'Start: ' + vd.querySelectorAll('.scheibe').length + ' Steine';
+      if (!text(vd, 'status').includes('Gegner am Zug')) return 'Start-Status: ' + text(vd, 'status');
+      ui.syncMoves(zuege.concat([{ c: 3 }]));
+      return vd.querySelectorAll('.scheibe').length === 7 && text(vd, 'status').includes('Gegner gewinnt') ? true : 'Status: ' + text(vd, 'status');
+    });
+
+    // ---------- Dame ----------
+    const df = await lade('dame.html'), dd = df.contentDocument;
+    const dKlick = n => dd.querySelector('.sq[data-sq="' + sq(n) + '"]').click();
+    const dZahl = col => dd.querySelectorAll('.stein.' + col).length;
+    await t('Dame: Startaufstellung mit je 12 Steinen', async () => dZahl('w') === 12 && dZahl('b') === 12);
+    await t('Dame: Zug, Schlagzwang und Schlag', async () => {
+      modus(dd, 'zwei');
+      dKlick('c3'); dKlick('d4');
+      if (!text(dd, 'status').includes('Schwarz ist am Zug')) return 'nach c3-d4: ' + text(dd, 'status');
+      dKlick('f6'); dKlick('e5');
+      if (!text(dd, 'status').includes('Schlagzwang')) return 'kein Schlagzwang: ' + text(dd, 'status');
+      if (dd.querySelectorAll('.sq.kann').length !== 1) return 'Hinweis-Markierung fehlt';
+      dKlick('b2'); dKlick('c3');                       // unerlaubt (kein Schlag) → darf nichts ändern
+      if (!text(dd, 'status').includes('Weiß ist am Zug')) return 'unerlaubter Zug wurde angenommen';
+      dKlick('d4'); dKlick('f6');
+      return dZahl('b') === 11 && dZahl('w') === 12 && text(dd, 'status').includes('Schwarz ist am Zug') && text(dd, 'status').includes('Schlagzwang');
+    });
+    await t('Dame: KI antwortet auf einen Zug', async () => {
+      modus(dd, 'ki');
+      dKlick('c3'); dKlick('d4');
+      await sleep(2500);
+      return text(dd, 'status').includes('Weiß ist am Zug') && dd.getElementById('zuege').children.length === 3;
+    });
+
+    // ---------- Mühle ----------
+    const mf = await lade('muehle.html'), md = mf.contentDocument;
+    const mKlick = p => md.querySelector('.mpunkt[data-p="' + p + '"]').click();
+    const mZahl = col => md.querySelectorAll('.stein.' + col).length;
+    await t('Mühle: Brett mit 24 Punkten', async () => md.querySelectorAll('.mpunkt').length === 24 && md.querySelectorAll('.stein').length === 0);
+    await t('Mühle: Setzen, Mühle schließen, Stein entfernen', async () => {
+      modus(md, 'zwei');
+      [0, 9, 1, 3].forEach(mKlick);
+      mKlick(2);
+      if (!text(md, 'status').includes('Mühle!')) return 'keine Mühle erkannt: ' + text(md, 'status');
+      if (md.querySelectorAll('.mpunkt.raus').length !== 2) return 'entfernbare Steine nicht markiert';
+      mKlick(5);                                           // kein gegnerischer Stein → nichts passiert
+      if (!text(md, 'status').includes('Mühle!')) return 'falscher Klick hat die Auswahl beendet';
+      mKlick(9);
+      return mZahl('w') === 3 && mZahl('b') === 1 && text(md, 'status').includes('Schwarz ist am Zug') && text(md, 'zaehler').includes('6 zu setzen');
+    });
+    await t('Mühle: KI antwortet auf einen Zug', async () => {
+      modus(md, 'ki');
+      mKlick(4);
+      await sleep(2500);
+      return mZahl('w') === 1 && mZahl('b') === 1 && text(md, 'status').includes('Weiß ist am Zug');
+    });
+
+    // ---------- Schach (Regression nach Umstellung auf online.js) ----------
+    const sf = await lade('schach.html'), sd = sf.contentDocument;
+    await t('Schach: 32 Figuren, Zug e2–e4 funktioniert', async () => {
+      if (sd.querySelectorAll('img.piece').length !== 32) return 'Figuren: ' + sd.querySelectorAll('img.piece').length;
+      modus(sd, 'zwei');
+      sd.querySelector('.sq[data-sq="' + sq('e2') + '"]').click();
+      sd.querySelector('.sq[data-sq="' + sq('e4') + '"]').click();
+      return text(sd, 'status').includes('Schwarz ist am Zug');
+    });
+    await t('Schach: Online-Steuerung ist verdrahtet', async () => {
+      modus(sd, 'online');
+      await sleep(1500);
+      return typeof sf.contentWindow.Online === 'object' && sd.getElementById('onlineBox').style.display !== 'none' && text(sd, 'onlineInfo').length > 5;
+    });
+
+    // ---------- Rangliste ----------
+    await t('Rangliste: Auswahl mit allen vier Spielen', async () => {
+      const d = (await lade('rangliste.html')).contentDocument;
+      return d.querySelectorAll('#spielwahl option').length === 4;
+    });
+
+    const summe = document.getElementById('summe');
+    summe.textContent = 'ERGEBNIS: ' + ok + ' bestanden, ' + fehl + ' fehlgeschlagen';
+    summe.className = fehl ? 'fehl' : 'ok';
+  })();
+  </script>
+</body>
+</html>

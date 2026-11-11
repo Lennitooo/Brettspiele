@@ -1,0 +1,394 @@
+/* Spielesammlung-Karton: Startseite = Deckel (orangerot), Spielseiten = geöffneter Kasten (marineblau).
+   Regeln der Welt stehen in DESIGN.md. */
+@font-face {
+  font-family: "Archivo";
+  src: url("fonts/archivo.woff2") format("woff2");
+  font-weight: 100 900; font-stretch: 62% 125%; font-display: swap;
+}
+
+:root {
+  --karton: #d2451e;
+  --karton-tief: #b53a17;
+  --marine: #1d3f72;
+  --marine-tief: #14294d;
+  --marine-hell: #2b5ca8;
+  --gelb: #f7d046;
+  --gelb-tief: #e6bb2c;
+  --papier: #ffffff;
+  --papier-getoent: #eef2f8;
+  --linie: #d5deec;
+  --tinte: #14294d;
+  --tinte-leise: #4a5f85;
+  --auf-marine-leise: #d3def0;
+  --feld-hell: #f6ecc9;
+  --feld-dunkel: #4d78b0;
+  --stein-hell: #fffaf0;
+  --stein-dunkel: #16233d;
+  --schatten: 0 14px 30px rgba(0, 0, 0, .42);
+  --size: min(100vw - 56px, 72vh, 640px);
+  --schrift: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --aus: cubic-bezier(.16, 1, .3, 1);
+}
+* { box-sizing: border-box; }
+@view-transition { navigation: auto; }
+
+body {
+  margin: 0; min-height: 100vh; min-height: 100svh;
+  font-family: var(--schrift); font-size: 1rem; line-height: 1.45;
+  color: var(--papier); background: var(--marine);
+  -webkit-font-smoothing: antialiased;
+}
+::selection { background: var(--gelb); color: var(--tinte); }
+:focus-visible { outline: 3px solid var(--gelb); outline-offset: 3px; }
+.panel :focus-visible, .authcard :focus-visible, .blatt :focus-visible, #promo :focus-visible { outline-color: var(--marine); }
+
+h1, h2, h3 { font-weight: 900; font-stretch: 108%; letter-spacing: -.02em; line-height: 1; margin: 0; text-wrap: balance; }
+a { color: inherit; text-underline-offset: .18em; text-decoration-thickness: 2px; }
+main { padding: 28px 16px 56px; max-width: 1100px; margin: 0 auto; }
+
+/* Kopfleiste: der Rand des Deckels */
+header.top {
+  display: flex; align-items: center; gap: 8px 22px; flex-wrap: wrap;
+  padding: 12px 24px; background: var(--karton);
+}
+header.top h1 { font-size: 1.6rem; }
+.zurueck {
+  display: inline-flex; align-items: center; gap: 9px; min-height: 44px;
+  font-weight: 700; text-decoration: none;
+}
+.zurueck::before {
+  content: ""; width: 9px; height: 9px; border-left: 3px solid currentColor; border-bottom: 3px solid currentColor;
+  transform: rotate(45deg); transition: transform .2s var(--aus);
+}
+.zurueck:hover { text-decoration: underline; }
+.zurueck:hover::before { transform: translateX(-3px) rotate(45deg); }
+nav.auth { display: flex; align-items: center; gap: 6px 20px; flex-wrap: wrap; margin-left: auto; font-weight: 600; }
+nav.auth a { display: inline-flex; align-items: center; min-height: 44px; text-decoration: none; }
+nav.auth a:hover { text-decoration: underline; }
+nav.auth .authname { font-weight: 800; }
+
+/* Startseite: der Deckel */
+body.deckel { background: var(--karton); display: flex; flex-direction: column; }
+.buehne { flex: 1; display: flex; flex-direction: column; min-height: 100vh; min-height: 100svh; }
+main.deckelflaeche {
+  flex: 1; width: 100%; max-width: 1400px; padding: 8px 64px 36px;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 56px; align-items: center;
+}
+.titel h1 { font-size: clamp(2.9rem, 7.2vw, 6.5rem); font-stretch: 100%; line-height: .92; letter-spacing: -.035em; }
+.titel p { margin: 28px 0 0; font-size: clamp(1.05rem, 1.5vw, 1.4rem); max-width: 30ch; line-height: 1.35; }
+.fenster { position: relative; width: min(600px, 44vw, (100svh - 240px) * .78); }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.card {
+  position: relative; display: flex; flex-direction: column; color: var(--papier); text-decoration: none;
+  background: var(--papier); border: 7px solid var(--marine); overflow: hidden;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, .30);
+  transition: transform .28s var(--aus), box-shadow .28s var(--aus);
+}
+a.card:hover, a.card:focus-visible { transform: translateY(-6px) rotate(-1.2deg); box-shadow: 0 20px 30px rgba(0, 0, 0, .38); }
+a.card:nth-child(even):hover, a.card:nth-child(even):focus-visible { transform: translateY(-6px) rotate(1.2deg); }
+.card .bild { display: block; aspect-ratio: 1; padding: 14px 14px 0; }
+.card .bild svg { display: block; width: 100%; height: 100%; }
+.card .schild { flex: 1; background: var(--marine); padding: 10px 12px 11px; margin-top: 14px; }
+.card h2 { font-size: clamp(1.05rem, 1.7vw, 1.45rem); letter-spacing: -.01em; }
+.card small { display: block; margin-top: 4px; font-size: .82rem; line-height: 1.3; color: var(--auf-marine-leise); }
+.card .badge {
+  position: absolute; top: 0; right: 0; padding: 5px 10px;
+  font-size: .72rem; font-weight: 800; color: var(--tinte); background: var(--gelb);
+}
+.card.bald { background: transparent; border-style: dashed; border-color: var(--papier); box-shadow: none; }
+.card.bald .bild { display: flex; align-items: center; justify-content: center; font-size: 3rem; }
+.card.bald .schild { background: transparent; }
+.stoerer {
+  position: absolute; left: -66px; top: -46px; z-index: 2; margin: 0;
+  width: 132px; height: 132px; border-radius: 50%; padding: 12px;
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  font-size: 1.02rem; font-weight: 900; font-stretch: 92%; line-height: 1.08; color: var(--tinte);
+  background: var(--gelb); box-shadow: 0 6px 12px rgba(0, 0, 0, .30);
+  transform: rotate(-11deg); animation: stempel .6s var(--aus);
+}
+.stoerer[hidden] { display: none; }
+@keyframes stempel { from { transform: rotate(6deg) scale(1.35); } to { transform: rotate(-11deg) scale(1); } }
+.leiste {
+  list-style: none; margin: 0; padding: 26px 64px; background: var(--marine);
+  display: flex; flex-wrap: wrap; gap: 8px 52px;
+  font-size: clamp(1.05rem, 1.8vw, 1.5rem); font-weight: 800; font-stretch: 104%;
+}
+.leiste b { color: var(--gelb); font-weight: 900; }
+.boden {
+  background: var(--marine-tief); padding: 88px 64px 96px;
+  display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 40px 64px; align-items: start;
+}
+.boden h2 { font-size: clamp(2rem, 4.4vw, 3.6rem); }
+.arten { margin: 0; }
+.arten div { padding: 20px 0; border-top: 2px solid rgba(255, 255, 255, .22); display: grid; grid-template-columns: 11rem 1fr; gap: 6px 24px; }
+.arten div:last-child { border-bottom: 2px solid rgba(255, 255, 255, .22); }
+.arten dt { font-size: 1.25rem; font-weight: 900; font-stretch: 106%; color: var(--gelb); }
+.arten dd { margin: 0; font-size: 1.08rem; color: var(--auf-marine-leise); max-width: 46ch; }
+.arten a { color: var(--papier); font-weight: 700; }
+
+/* Spielseiten: das Brett liegt im Kasten */
+.layout { display: flex; gap: 28px; flex-wrap: wrap; justify-content: center; align-items: flex-start; }
+.board-wrap { padding: 12px; background: var(--papier); border-radius: 6px; box-shadow: var(--schatten); }
+#board {
+  width: var(--size); height: var(--size);
+  display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr);
+  border-radius: 2px; overflow: hidden; user-select: none;
+}
+.sq {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  font-size: calc(var(--size) / 8 * 0.78); line-height: 1; cursor: pointer;
+}
+.sq.hell { background: var(--feld-hell); }
+.sq.dunkel { background: var(--feld-dunkel); }
+.sq.last::before { content: ""; position: absolute; inset: 0; background: rgba(247, 208, 70, .55); }
+.sq.sel::before { content: ""; position: absolute; inset: 0; background: rgba(247, 208, 70, .85); box-shadow: inset 0 0 0 3px var(--tinte); }
+.sq.check, .sq.dunkel.check { background: #f0977c; box-shadow: inset 0 0 0 5px var(--karton); }
+.sq.ziel::after {
+  content: ""; position: absolute; width: 28%; height: 28%; border-radius: 50%;
+  background: rgba(20, 41, 77, .38); pointer-events: none;
+}
+.sq.ziel.schlag::after { width: 90%; height: 90%; background: transparent; border: 5px solid rgba(20, 41, 77, .42); }
+.piece { position: relative; z-index: 1; width: 92%; height: 92%; object-fit: contain; pointer-events: none; }
+.coord { position: absolute; font-size: calc(var(--size) / 8 * 0.18); font-weight: 800; z-index: 2; pointer-events: none; }
+.sq.hell .coord { color: var(--marine); }
+.sq.dunkel .coord { color: var(--feld-hell); }
+.coord.rang { top: 3%; left: 5%; }
+.coord.linie { bottom: 3%; right: 6%; }
+
+/* Bedienfeld: ein Blatt Papier neben dem Brett */
+.panel, .authcard, .blatt, #promo .box, #hfBox .box {
+  background: var(--papier); color: var(--tinte); border-radius: 6px; box-shadow: var(--schatten);
+}
+.panel { padding: 20px; width: 320px; max-width: 100%; display: flex; flex-direction: column; gap: 16px; }
+.panel a, .authcard a, .blatt a { color: var(--marine); font-weight: 700; }
+#status { font-size: 1.3rem; font-weight: 900; font-stretch: 104%; line-height: 1.15; letter-spacing: -.01em; min-height: 1.5em; text-wrap: balance; }
+#status.ende { color: var(--karton-tief); }
+.row { display: flex; gap: 10px; flex-wrap: wrap; }
+label.f { display: flex; flex-direction: column; gap: 5px; font-size: .84rem; font-weight: 700; color: var(--tinte-leise); flex: 1; min-width: 120px; }
+select, button, input {
+  font: inherit; font-size: 1rem; font-weight: 600; min-height: 44px; padding: 9px 13px; border-radius: 6px;
+  border: 2px solid var(--marine); background-color: var(--papier); color: var(--tinte);
+  transition: background-color .15s, transform .08s;
+}
+input { width: 100%; caret-color: var(--karton); }
+input::placeholder { color: var(--tinte-leise); opacity: 1; }
+select {
+  width: 100%; appearance: none; -webkit-appearance: none; padding-right: 38px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%231d3f72' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 13px center; background-size: 12px 8px;
+}
+select:hover { background-color: var(--papier-getoent); }
+button { cursor: pointer; flex: 1; font-weight: 800; }
+button:hover:not(:disabled) { background-color: var(--papier-getoent); }
+button:active:not(:disabled) { transform: translateY(1px); }
+button:disabled { opacity: .45; cursor: not-allowed; }
+button.primary { background-color: var(--gelb); }
+button.primary:hover:not(:disabled) { background-color: var(--gelb-tief); }
+.geschlagen { min-height: 1.6em; }
+.geschlagen small { font-size: .78rem; font-weight: 600; color: var(--tinte-leise); display: block; margin-top: 5px; }
+.geschlagen .reihe { display: flex; flex-wrap: wrap; gap: 1px; min-height: 1.5em; align-items: center; }
+.geschlagen .mini { width: 1.4rem; height: 1.4rem; }
+#zuege {
+  max-height: 210px; overflow-y: auto; font-size: .92rem; font-weight: 500; font-variant-numeric: tabular-nums;
+  background: var(--papier-getoent); border-radius: 4px; padding: 10px 12px;
+  display: grid; grid-template-columns: 2.2em 1fr 1fr; gap: 3px 8px;
+  scrollbar-width: thin; scrollbar-color: var(--marine) transparent;
+}
+#zuege .nr { color: var(--tinte-leise); }
+#zuege:empty::before { content: "Noch keine Züge"; color: var(--tinte-leise); grid-column: 1 / -1; }
+
+#promo {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, .72); display: none;
+  align-items: center; justify-content: center; z-index: 10;
+}
+#promo.offen { display: flex; }
+#promo .box { padding: 22px; text-align: center; font-weight: 800; }
+#promo .opts { display: flex; gap: 10px; margin-top: 12px; }
+#promo button { padding: 8px; line-height: 0; background: var(--feld-hell); flex: 0 0 auto; }
+#promo button img { width: 58px; height: 58px; display: block; }
+#promo button:hover { background: var(--gelb); }
+
+/* Login / Registrierung */
+.authcard { max-width: 400px; margin: 40px auto; padding: 28px 28px 14px; }
+.authcard .tabs { display: flex; margin-bottom: 22px; border: 2px solid var(--marine); border-radius: 6px; overflow: hidden; }
+.authcard .tabs button { flex: 1; border: 0; border-radius: 0; }
+.authcard .tabs button.aktiv { background: var(--marine); color: var(--papier); }
+.authcard .tabs button:focus-visible { outline-offset: -5px; outline-color: var(--gelb); }
+#formAuth { display: flex; flex-direction: column; gap: 16px; }
+.meldung { margin: 4px 0 0; min-height: 1.3em; font-size: .92rem; font-weight: 600; }
+.meldung.ok { color: #1c6b37; }
+.meldung.fehler { color: var(--karton-tief); }
+
+/* Online-Bereich im Bedienfeld */
+#onlineBox { display: flex; flex-direction: column; gap: 12px; }
+.onlineinfo { font-size: .94rem; line-height: 1.5; }
+#onlineLinkWrap { display: flex; flex-direction: column; gap: 8px; }
+#onlineLink { font-size: .82rem; font-weight: 500; }
+
+/* Rangliste: der Spielblock */
+.blatt { max-width: 680px; margin: 12px auto 0; padding: 24px 24px 12px; }
+.blattkopf { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px 24px; flex-wrap: wrap; }
+.blattkopf p { margin: 0 0 10px; font-weight: 600; color: var(--tinte-leise); }
+label.spielwahl { flex: 0 0 220px; }
+.rangliste { width: 100%; margin: 22px 0 0; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.rangliste th, .rangliste td { padding: 11px 10px; text-align: left; border-bottom: 1px solid var(--linie); }
+.rangliste th { background: var(--marine); color: var(--papier); font-size: .84rem; font-weight: 800; border-bottom: 0; }
+.rangliste td { font-weight: 500; }
+.rangliste td:nth-child(2) { font-weight: 800; }
+.rangliste td.zahl, .rangliste th.zahl { text-align: right; }
+.rangliste td:first-child, .rangliste th:first-child { text-align: center; width: 3.2em; font-weight: 900; }
+.rangliste tbody tr:nth-child(-n+3) td:first-child { background: var(--gelb); }
+.rangliste tr.ich { background: #fdf3c4; }
+.leer { text-align: center; color: var(--tinte-leise); font-weight: 600; margin: 32px 0; }
+
+/* Freunde-Seite */
+.blatt h2 { font-size: 1.15rem; margin: 24px 0 10px; }
+.blatt > h2:first-child, .blatt #anfragenEin:empty + h2 { margin-top: 0; }
+.suche { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 4px; }
+.suche .f { flex: 1; min-width: 200px; }
+.suche button { flex: 0 0 auto; }
+#suchErgebnis:not(:empty), #anfragenEin:not(:empty), #anfragenAus:not(:empty) { margin-top: 14px; }
+.zeile {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px 14px; flex-wrap: wrap;
+  padding: 11px 0; border-bottom: 1px solid var(--linie);
+}
+.zeile:last-child { border-bottom: 0; }
+.zeile > span:first-child { flex: 1 1 auto; min-width: 130px; font-weight: 700; }
+.zeile .row { flex: 0 0 auto; gap: 8px; }
+.kuerzel { color: var(--tinte-leise); font-weight: 600; font-size: .82em; }
+.wartet { color: var(--tinte-leise); font-weight: 600; font-size: .9rem; }
+button.klein { flex: 0 0 auto; min-height: 38px; padding: 7px 14px; font-size: .92rem; }
+
+/* Herausfordern-Dialog */
+#hfBox {
+  position: fixed; inset: 0; background: rgba(8, 18, 40, .72); display: none;
+  align-items: center; justify-content: center; z-index: 20; padding: 16px;
+}
+#hfBox.offen { display: flex; }
+#hfBox .box { width: 380px; max-width: 100%; padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+#hfBox h2 { margin: 0; }
+
+/* Einladungen (Herausforderungs-Toasts, auf jeder Seite) */
+#toasts {
+  position: fixed; top: 14px; right: 14px; z-index: 30;
+  display: flex; flex-direction: column; gap: 10px; width: min(92vw, 340px);
+}
+.einladung {
+  background: var(--papier); color: var(--tinte); border: 2px solid var(--marine);
+  border-radius: 8px; padding: 14px 16px; box-shadow: var(--schatten);
+  animation: einblenden .28s var(--aus);
+}
+.einladung p { margin: 0 0 12px; font-weight: 700; line-height: 1.35; }
+.einladung small { font-weight: 600; color: var(--tinte-leise); }
+@keyframes einblenden { from { transform: translateY(-10px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* Gemeinsam für Dame, Mühle, Vier gewinnt */
+.zaehler { font-size: .9rem; font-weight: 600; line-height: 1.5; color: var(--tinte-leise); }
+.regeln { font-size: .9rem; color: var(--tinte-leise); }
+.regeln summary { cursor: pointer; color: var(--marine); font-weight: 800; padding: 6px 0; }
+.regeln p { margin: 6px 0 0; line-height: 1.5; }
+.regeln b { color: var(--tinte); }
+.punkt { display: inline-block; width: .8em; height: .8em; border-radius: 50%; margin-right: .45em; vertical-align: -.05em; box-shadow: 0 0 0 2px var(--tinte); }
+.punkt.w { background: var(--karton); }
+.punkt.b { background: var(--gelb); }
+
+/* Spielsteine (Dame, Mühle): flach, mit Ringen wie gepresster Kunststoff */
+.stein {
+  position: relative; z-index: 1; width: 78%; aspect-ratio: 1; border-radius: 50%; pointer-events: none;
+  display: flex; align-items: center; justify-content: center;
+}
+.stein.w {
+  background: var(--stein-hell);
+  box-shadow: inset 0 0 0 2px var(--tinte), inset 0 0 0 6px var(--stein-hell), inset 0 0 0 8px rgba(20, 41, 77, .28), 0 2px 4px rgba(0, 0, 0, .40);
+}
+.stein.b {
+  background: var(--stein-dunkel);
+  box-shadow: inset 0 0 0 2px #080f1f, inset 0 0 0 6px var(--stein-dunkel), inset 0 0 0 8px rgba(255, 255, 255, .30), 0 2px 4px rgba(0, 0, 0, .45);
+}
+.stein.dame::after {
+  content: ""; width: 44%; aspect-ratio: 1; border-radius: 50%;
+  background: var(--gelb); box-shadow: inset 0 0 0 2px var(--tinte);
+}
+.stein.weg { opacity: .3; }
+
+/* Dame */
+.sq.kann { box-shadow: inset 0 0 0 4px var(--gelb); }
+
+/* Vier gewinnt */
+#board.vier { display: flex; height: auto; aspect-ratio: 7 / 6; padding: 1.2%; background: var(--marine-hell); }
+.vcol {
+  flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 0; border: 0; border-radius: 4px;
+  background: none; cursor: pointer; min-width: 0;
+}
+.vcol:hover:not(:disabled) { background: rgba(255, 255, 255, .16); }
+.vcol:active:not(:disabled) { transform: none; }
+.vcol:disabled { opacity: 1; cursor: default; }
+.vcol:focus-visible { outline-color: var(--gelb); outline-offset: -3px; }
+.vzelle { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; }
+.vzelle::before { content: ""; position: absolute; width: 84%; aspect-ratio: 1; border-radius: 50%; background: var(--marine-tief); }
+.scheibe { position: relative; z-index: 1; width: 80%; aspect-ratio: 1; border-radius: 50%; }
+.scheibe.w { background: var(--karton); box-shadow: inset 0 0 0 3px #8f2a0e, inset 0 0 0 8px var(--karton), inset 0 0 0 10px rgba(255, 255, 255, .28); }
+.scheibe.b { background: var(--gelb); box-shadow: inset 0 0 0 3px #b98d0c, inset 0 0 0 8px var(--gelb), inset 0 0 0 10px rgba(255, 255, 255, .5); }
+.vzelle.gewinn .scheibe { outline: 4px solid var(--papier); outline-offset: 1px; }
+.scheibe.fall { animation: fall .38s cubic-bezier(.35, 0, .75, 1); }
+@keyframes fall {
+  from { transform: translateY(calc(-125% * (var(--r) + 1))); }
+  to { transform: none; }
+}
+
+/* Mühle */
+#board.muehle { display: block; position: relative; background: var(--feld-hell); }
+#board.muehle svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+#board.muehle svg rect, #board.muehle svg line { fill: none; stroke: var(--marine); stroke-width: 1.1; stroke-linecap: round; }
+.mpunkt {
+  position: absolute; width: 12.5%; height: 12.5%; min-height: 0; transform: translate(-50%, -50%);
+  padding: 0; border: 0; border-radius: 50%; background: none; flex: none;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.mpunkt:hover:not(:disabled) { background: rgba(29, 63, 114, .14); }
+.mpunkt:active:not(:disabled) { transform: translate(-50%, -50%); }
+.mpunkt:focus-visible { outline-color: var(--karton); }
+.mpunkt::before { content: ""; position: absolute; width: 24%; height: 24%; border-radius: 50%; background: var(--marine); }
+.mpunkt .stein { width: 84%; }
+.mpunkt.last .stein { outline: 3px solid var(--gelb-tief); outline-offset: 2px; }
+.mpunkt.sel .stein { outline: 4px solid var(--karton); outline-offset: 2px; }
+.mpunkt.ziel::after {
+  content: ""; position: absolute; width: 46%; height: 46%; border-radius: 50%;
+  background: var(--gelb); box-shadow: 0 0 0 2px var(--tinte);
+}
+.mpunkt.raus .stein { outline: 3px dashed var(--karton); outline-offset: 3px; }
+
+@media (max-width: 860px) {
+  main.deckelflaeche { grid-template-columns: 1fr; gap: 40px; padding: 4px 20px 36px; align-items: start; }
+  .titel h1 { font-size: min(15vw, 5.5rem); }
+  .titel p { margin-top: 18px; }
+  .fenster { width: 100%; max-width: 520px; }
+  .grid { gap: 14px; }
+  .card { border-width: 5px; }
+  .card .bild { padding: 10px 10px 0; }
+  .card .schild { margin-top: 10px; padding: 8px 10px 9px; }
+  .buehne { min-height: 0; }
+  .stoerer { left: auto; right: -8px; top: -98px; width: 104px; height: 104px; font-size: .84rem; }
+  .leiste { padding: 22px 20px; gap: 6px 28px; }
+  .boden { grid-template-columns: 1fr; padding: 56px 20px 64px; }
+  .arten div { grid-template-columns: 1fr; }
+  header.top { padding: 8px 16px; }
+  header.top h1 { font-size: 1.35rem; }
+  /* Kopfzeile: Links in eine eigene, umbrechende Zeile – sonst schiebt die Navigation die Seite breit */
+  nav.auth { width: 100%; margin-left: 0; gap: 6px 16px; }
+  .panel { width: calc(var(--size) + 24px); }
+  /* Freunde-Zeilen: Name oben, Knöpfe darunter – kein waagerechtes Überlaufen */
+  .zeile > span:first-child { flex-basis: 100%; }
+  .suche .f { min-width: 0; }
+}
+@media (max-width: 420px) {
+  .stoerer { top: -82px; width: 88px; height: 88px; font-size: .74rem; padding: 8px; }
+  .rangliste th, .rangliste td { padding: 10px 6px; }
+  .blatt { padding: 18px 12px 8px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @view-transition { navigation: none; }
+  .scheibe.fall, .stoerer, .einladung { animation: none; }
+  .card, button, select, input, a, .zurueck::before { transition: none; }
+}

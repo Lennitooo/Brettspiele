@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Selbsttests – Brettspiele</title>
+  <style>
+    body { font-family: ui-monospace, Consolas, monospace; background: #1d130c; color: #f4e9d6; padding: 20px; }
+    .ok { color: #a7d06a; } .fehl { color: #ff9a8a; font-weight: 700; }
+    h1 { font-size: 1.2rem; } #summe { font-size: 1.1rem; margin: 12px 0; }
+  </style>
+</head>
+<body>
+  <h1>Selbsttests der Spiel-Engines</h1>
+  <div id="summe">läuft …</div>
+  <div id="out"></div>
+
+  <script src="vier-engine.js"></script>
+  <script src="dame-engine.js"></script>
+  <script src="muehle-engine.js"></script>
+  <script>
+  (function () {
+    'use strict';
+    const out = document.getElementById('out');
+    let ok = 0, fehl = 0;
+    function t(name, fn) {
+      let pass = false, msg = '';
+      try { pass = fn() === true; } catch (e) { msg = ' – Ausnahme: ' + e.message; }
+      if (pass) ok++; else fehl++;
+      const d = document.createElement('div');
+      d.className = pass ? 'ok' : 'fehl';
+      d.textContent = (pass ? 'OK   ' : 'FEHL ') + name + msg;
+      out.appendChild(d);
+    }
+    const sq = n => (8 - +n[1]) * 8 + 'abcdefgh'.indexOf(n[0]);   // 'e3' → Index (8×8)
+    const rnd = a => a[Math.floor(Math.random() * a.length)];
+
+    // ================= Vier gewinnt =================
+    const V = window.Vier;
+    const vPlay = cols => cols.reduce((s, c) => V.make(s, c), V.start());
+    const vBoard = (cells, last) => {
+      const b = new Array(42).fill('');
+      cells.forEach(x => { b[x[0] * 7 + x[1]] = x[2]; });
+      return { board: b, turn: 'w', last: last[0] * 7 + last[1] };
+    };
+    t('Vier: Start hat 7 spielbare Spalten', () => V.legal(V.start()).length === 7);
+    t('Vier: waagerechter Sieg', () => { const s = V.status(vPlay([0, 0, 1, 1, 2, 2, 3])); return s.end === 'win' && s.winner === 'w' && s.line.length === 4; });
+    t('Vier: senkrechter Sieg', () => { const s = V.status(vPlay([0, 1, 0, 1, 0, 1, 0])); return s.end === 'win' && s.winner === 'w'; });
+    t('Vier: diagonaler Sieg (steigend)', () => V.status(vBoard([[5, 0, 'w'], [4, 1, 'w'], [3, 2, 'w'], [2, 3, 'w']], [2, 3])).end === 'win');
+    t('Vier: diagonaler Sieg (fallend)', () => V.status(vBoard([[5, 6, 'b'], [4, 5, 'b'], [3, 4, 'b'], [2, 3, 'b']], [2, 3])).winner === 'b');
+    t('Vier: drei in Reihe ist kein Sieg', () => V.status(vPlay([0, 0, 1, 1, 2])).end === null);
+    t('Vier: volle Spalte ist gesperrt', () => { const s = vPlay([0, 0, 0, 0, 0, 0]); return !V.legal(s).includes(0) && V.make(s, 0) === null; });
+    t('Vier: nach Sieg keine Züge mehr', () => V.legal(vPlay([0, 0, 1, 1, 2, 2, 3])).length === 0);
+    t('Vier: volles Brett ohne Vierer ist Remis', () => {
+      const b = []; for (let r = 0; r < 6; r++) for (let c = 0; c < 7; c++) b.push(((Math.floor(c / 2) + r) % 2) ? 'w' : 'b');
+      return V.status({ board: b, turn: 'w', last: 0 }).end === 'draw';
+    });
+    t('Vier: KI nutzt sofortigen Gewinn', () => V.bestMove(vPlay([0, 0, 1, 1, 2, 2]), 3) === 3);
+    t('Vier: KI blockt gegnerischen Gewinn', () => V.bestMove(vPlay([6, 0, 6, 1, 5, 2]), 3) === 3);
+    t('Vier: 40 Zufallspartien enden regulär', () => {
+      for (let g = 0; g < 40; g++) {
+        let s = V.start(), n = 0;
+        while (V.status(s).end === null) { s = V.make(s, rnd(V.legal(s))); if (++n > 42) return false; }
+      }
+      return true;
+    });
+    t('Vier: KI liefert auf jeder Stufe einen gültigen Zug', () => [1, 2, 3, 4].every(l => V.legal(V.start()).includes(V.bestMove(V.start(), l))));
+
+    // ================= Dame =================
+    const D = window.Dame;
+    const dState = (pieces, turn, quiet) => {
+      const b = new Array(64).fill('');
+      Object.keys(pieces).forEach(k => { b[sq(k)] = pieces[k]; });
+      return { board: b, turn: turn || 'w', quiet: quiet || 0 };
+    };
+    const paths = s => D.legal(s).map(m => m.path.map(D.sqName).join(''));
+    t('Dame: Start mit je 12 Steinen auf dunklen Feldern', () => {
+      const b = D.start().board;
+      return b.filter(p => p === 'w').length === 12 && b.filter(p => p === 'b').length === 12 &&
+        b.every((p, i) => p === '' || ((i >> 3) + (i & 7)) % 2 === 1);
+    });
+    t('Dame: Weiß hat am Start 7 Züge', () => D.legal(D.start()).length === 7);
+    t('Dame: Schlagzwang (nur der Schlag ist erlaubt)', () => {
+      const p = paths(dState({ e3: 'w', d4: 'b', a1: 'w' }));
+      return p.length === 1 && p[0] === 'e3c5';
+    });
+    t('Dame: Mehrfachschlag muss zu Ende geführt werden', () => {
+      const l = D.legal(dState({ a1: 'w', b2: 'b', d4: 'b' }));
+      return l.length === 1 && l[0].path.map(D.sqName).join('') === 'a1c3e5' && l[0].caps.length === 2;
+    });
+    t('Dame: Stein schlägt nicht rückwärts', () => D.legal(dState({ c5: 'w', d4: 'b' })).every(m => m.caps.length === 0));
+    t('Dame: Stein zieht nur vorwärts', () => { const p = paths(dState({ d4: 'w' })); return p.length === 2 && p.includes('d4c5') && p.includes('d4e5'); });
+    t('Dame: Dame zieht beliebig weit', () => D.legal(dState({ a1: 'W' })).length === 7);
+    t('Dame: Dame schlägt aus der Ferne und landet frei', () => {
+      const l = D.legal(dState({ a1: 'W', d4: 'b' }));
+      return l.length === 4 && l.every(m => m.caps.length === 1 && m.caps[0] === sq('d4'));
+    });
+    t('Dame: Dame springt nicht über zwei Steine', () => D.legal(dState({ a1: 'W', c3: 'b', d4: 'b' })).every(m => m.caps.length === 0));
+    t('Dame: Umwandlung auf der letzten Reihe', () => {
+      const s = dState({ b7: 'w' });
+      const n = D.make(s, D.legal(s)[0]);
+      return n.board.filter(p => p === 'W').length === 1 && n.board.filter(p => p === 'w').length === 0;
+    });
+    t('Dame: geschlagene Steine werden entfernt', () => {
+      const s = dState({ a1: 'w', b2: 'b', d4: 'b' });
+      const n = D.make(s, D.legal(s)[0]);
+      return n.board.filter(p => p === 'b').length === 0 && n.board[sq('e5')] === 'w' && n.turn === 'b';
+    });
+    t('Dame: ohne Steine verloren', () => D.status(dState({ a1: 'w' }, 'b')) === 'loss');
+    t('Dame: blockiert = verloren', () => D.status(dState({ a3: 'w', b4: 'b', c5: 'b' }, 'w')) === 'loss');
+    t('Dame: Remis nach 40 ruhigen Halbzügen', () => D.status(dState({ a1: 'W', h8: 'B' }, 'w', 40)) === 'draw');
+    t('Dame: 30 Zufallspartien ohne Fehler', () => {
+      for (let g = 0; g < 30; g++) {
+        let s = D.start(), n = 0, steine = 24;
+        while (D.status(s) === null && n++ < 400) {
+          s = D.make(s, rnd(D.legal(s)));
+          const jetzt = s.board.filter(p => p !== '').length;
+          if (jetzt > steine) return false;
+          steine = jetzt;
+        }
+      }
+      return true;
+    });
+    t('Dame: KI schlägt, wenn sie einen Stein gewinnen kann', () => { const m = D.bestMove(dState({ e3: 'w', d4: 'b', h8: 'b', a1: 'w' }), 2); return m.caps.length === 1; });
+    t('Dame: KI liefert auf jeder Stufe einen gültigen Zug', () => [1, 2, 3, 4].every(l => {
+      const m = D.bestMove(D.start(), l);
+      return D.legal(D.start()).some(x => D.sameMove(x, m.path));
+    }));
+
+    // ================= Mühle =================
+    const M = window.Muehle;
+    const mState = (w, b, turn, hw, hb, quiet) => {
+      const brd = new Array(24).fill('');
+      w.forEach(p => { brd[p] = 'w'; }); b.forEach(p => { brd[p] = 'b'; });
+      return { board: brd, turn: turn || 'w', hand: { w: hw === undefined ? 9 : hw, b: hb === undefined ? 9 : hb }, quiet: quiet || 0 };
+    };
+    t('Mühle: Nachbarschaften sind symmetrisch', () => M.ADJ.every((l, i) => l.every(j => M.ADJ[j].includes(i))));
+    t('Mühle: 16 Mühlen, jeder Punkt liegt in genau 2', () => M.MILLS.length === 16 &&
+      Array.from({ length: 24 }, (_, p) => M.MILLS.filter(m => m.includes(p)).length).every(n => n === 2));
+    t('Mühle: Mühlen liegen auf geraden, verbundenen Linien', () => M.MILLS.every(m =>
+      M.ADJ[m[0]].includes(m[1]) && M.ADJ[m[1]].includes(m[2]) &&
+      (M.XY[m[0]][0] === M.XY[m[2]][0] || M.XY[m[0]][1] === M.XY[m[2]][1])));
+    t('Mühle: Start erlaubt 24 Setzzüge', () => M.legal(M.start()).length === 24);
+    t('Mühle: geschlossene Mühle erlaubt Entfernen', () => {
+      const l = M.legal(mState([0, 1], [9, 3], 'w', 7, 7)).filter(m => m.to === 2);
+      return l.length === 2 && l.every(m => m.remove === 9 || m.remove === 3);
+    });
+    t('Mühle: Steine in einer Mühle sind geschützt', () => {
+      const l = M.legal(mState([0, 1], [3, 4, 5, 9], 'w', 7, 5)).filter(m => m.to === 2);
+      return l.length === 1 && l[0].remove === 9;
+    });
+    t('Mühle: Schutz entfällt, wenn alle Steine in Mühlen stehen', () => M.legal(mState([0, 1], [3, 4, 5], 'w', 7, 6)).filter(m => m.to === 2).length === 3);
+    t('Mühle: Phasen Setzen → Ziehen → Springen', () =>
+      M.phase(mState([0, 1], [3], 'w', 7, 8), 'w') === 'setzen' &&
+      M.phase(mState([0, 1, 5, 6], [3, 4, 9, 10], 'w', 0, 0), 'w') === 'ziehen' &&
+      M.phase(mState([0, 1, 5], [3, 4, 9, 10], 'w', 0, 0), 'w') === 'springen');
+    t('Mühle: Ziehen nur auf Nachbarpunkte', () => M.legal(mState([0, 5, 6, 20], [3, 4, 10, 22], 'w', 0, 0)).every(m => M.ADJ[m.from].includes(m.to)));
+    t('Mühle: Springen auf beliebige freie Punkte', () => M.legal(mState([0, 5, 6], [3, 4, 10, 22], 'w', 0, 0)).some(m => !M.ADJ[m.from].includes(m.to)));
+    t('Mühle: weniger als 3 Steine = verloren', () => M.status(mState([0, 5], [3, 4, 10, 22], 'w', 0, 0)) === 'loss');
+    t('Mühle: eingeschlossen = verloren', () => M.status(mState([0, 2, 21, 23], [1, 9, 14, 22], 'w', 0, 0)) === 'loss');
+    t('Mühle: Remis nach 50 Zügen ohne Mühle', () => M.status(mState([0, 5, 6, 20], [3, 4, 10, 22], 'w', 0, 0, 50)) === 'draw');
+    t('Mühle: Zug wird korrekt ausgeführt', () => {
+      const s = mState([0, 1], [9, 3], 'w', 7, 7);
+      const n = M.make(s, { from: null, to: 2, remove: 9 });
+      return n.board[2] === 'w' && n.board[9] === '' && n.hand.w === 6 && n.turn === 'b';
+    });
+    t('Mühle: KI schließt eine Mühle und entschärft die Gegendrohung', () => {
+      const m = M.bestMove(mState([0, 1], [21, 22], 'w', 7, 7), 2);
+      return m.to === 2 && (m.remove === 21 || m.remove === 22);
+    });
+    t('Mühle: KI verhindert eine gegnerische Mühle', () => M.bestMove(mState([15, 8], [0, 1], 'w', 7, 7), 2).to === 2);
+    t('Mühle: 30 Zufallspartien ohne Fehler', () => {
+      for (let g = 0; g < 30; g++) {
+        let s = M.start(), n = 0;
+        while (M.status(s) === null && n++ < 600) {
+          s = M.make(s, rnd(M.legal(s)));
+          if (M.count(s.board, 'w') + s.hand.w > 9 || M.count(s.board, 'b') + s.hand.b > 9) return false;
+        }
+      }
+      return true;
+    });
+    t('Mühle: KI liefert auf jeder Stufe einen gültigen Zug', () => [1, 2, 3, 4].every(l => {
+      const m = M.bestMove(M.start(), l);
+      return M.legal(M.start()).some(x => M.sameMove(x, m));
+    }));
+
+    // ================= KI-Geschwindigkeit (stärkste Stufe, Mittelspiel) =================
+    function zeit(name, fn) {
+      const t0 = performance.now(); fn();
+      const ms = Math.round(performance.now() - t0);
+      const d = document.createElement('div');
+      d.textContent = 'ZEIT ' + name + ': ' + ms + ' ms';
+      out.appendChild(d);
+    }
+    zeit('Vier Stufe 4', () => V.bestMove(vPlay([3, 3, 2, 4, 4, 2]), 4));
+    zeit('Vier Stufe 4 (leeres Brett)', () => V.bestMove(V.start(), 4));
+    zeit('Vier Stufe 3 (leeres Brett)', () => V.bestMove(V.start(), 3));
+    zeit('Dame Stufe 4 (Damen-Endspiel)', () => D.bestMove(dState({ a1: 'W', c1: 'W', e1: 'w', h8: 'B', f8: 'B', d8: 'b' }), 4));
+    zeit('Mühle Stufe 4 (beide springen)', () => M.bestMove(mState([0, 4, 13], [1, 10, 19], 'w', 0, 0), 4));
+    zeit('Mühle Stufe 4 (Ziehen)', () => M.bestMove(mState([0, 4, 13, 6, 20, 23, 16], [1, 10, 19, 22, 7, 5, 9], 'w', 0, 0), 4));
+    zeit('Mühle Stufe 4 (leeres Brett)', () => M.bestMove(M.start(), 4));
+    zeit('Dame Stufe 4', () => { let s = D.start(); for (let i = 0; i < 8; i++) s = D.make(s, D.bestMove(s, 2)); D.bestMove(s, 4); });
+    zeit('Mühle Stufe 4 (Setzen)', () => M.bestMove(mState([0, 4, 13], [1, 10, 19], 'w', 6, 6), 4));
+    zeit('Mühle Stufe 4 (Springen)', () => M.bestMove(mState([0, 4, 13], [1, 10, 19, 22, 7], 'w', 0, 0), 4));
+
+    const summe = document.getElementById('summe');
+    summe.textContent = 'ERGEBNIS: ' + ok + ' bestanden, ' + fehl + ' fehlgeschlagen';
+    summe.className = fehl ? 'fehl' : 'ok';
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Freunde-Test – Brettspiele</title>
+  <style>
+    body { font-family: ui-monospace, Consolas, monospace; background: #1d130c; color: #f4e9d6; padding: 20px; }
+    .ok { color: #a7d06a; } .fehl { color: #ff9a8a; font-weight: 700; }
+    h1 { font-size: 1.2rem; } #summe { font-size: 1.1rem; margin: 12px 0; } p { color: #c9bda8; max-width: 70ch; }
+    .paar { display: flex; gap: 12px; margin-top: 16px; } .paar iframe { flex: 1; height: 920px; border: 1px solid #5c4028; min-width: 0; }
+  </style>
+</head>
+<body>
+  <h1>Freunde-Test (Anfrage → Annahme → Herausforderung → gemeinsame Partie)</h1>
+  <p>Links agiert Spieler A (sucht B, schickt Freundschaftsanfrage, fordert später heraus), rechts Spieler B
+     (nimmt Anfrage und Herausforderung an). Beide Konten laufen unter verschiedenen Adressen desselben Servers,
+     damit jede Seite ihre eigene Anmeldung hat. Achtung: Jeder Lauf legt zwei Test-Konten (test-freund-…@example.com),
+     Freundschafts- und Herausforderungs-Zeilen sowie eine Partie an – siehe SETUP.md zum Aufräumen.</p>
+  <p><b>Hinweis für automatisierte Läufe (Edge headless):</b> Diese Seite zum Zusehen in einem echten Browser-Tab
+     öffnen – dort funktioniert der eingebettete 127.0.0.1-iframe einwandfrei. Unter <code>--virtual-time-budget</code>
+     bekommt der fremdursprüngliche iframe aber manchmal gar keine Rechenzeit (Chrome-Side-Isolation). Für einen
+     automatisierten Lauf stattdessen <code>test-freunde-spieler.html?rolle=a|b&amp;lauf=…</code> als zwei <i>eigene</i>
+     Edge-Prozesse (je einer pro Ursprung, mit demselben <code>lauf</code>) parallel starten.</p>
+  <div id="summe">läuft …</div>
+  <div id="out"></div>
+  <script>
+  (async function () {
+    'use strict';
+    const out = document.getElementById('out');
+    let ok = 0, fehl = 0;
+    function melde(name, pass, msg) {
+      if (pass) ok++; else fehl++;
+      const d = document.createElement('div');
+      d.className = pass ? 'ok' : 'fehl';
+      d.textContent = (pass ? 'OK   ' : 'FEHL ') + name + (msg ? ' – ' + msg : '');
+      out.appendChild(d);
+    }
+    // Spieler B läuft unter der anderen Adresse desselben Servers → eigene Anmeldung (wie test-online.html).
+    const andere = location.hostname === 'localhost' ? '127.0.0.1' : 'localhost';
+    const basisB = location.protocol + '//' + andere + (location.port ? ':' + location.port : '') + location.pathname.replace(/[^/]*$/, '');
+
+    const lauf = Date.now().toString(36);
+    const antworten = {};
+    const h = e => { if (e.data && e.data.typ === 'freunde-test') antworten[e.data.rolle] = e.data; };
+    addEventListener('message', h);
+    const paar = document.createElement('div');
+    paar.className = 'paar';
+    const qs = '?lauf=' + lauf + '&rolle=';
+    paar.innerHTML = '<iframe src="test-freunde-spieler.html' + qs + 'a"></iframe><iframe src="' + basisB + 'test-freunde-spieler.html' + qs + 'b"></iframe>';
+    document.body.appendChild(paar);
+
+    // Aktiv warten (mit echter Netzabfrage je Runde), damit beide Rollen im Echtzeit-Tempo bleiben.
+    for (let i = 0; i < 1200 && !(antworten.a && antworten.b); i++) {
+      try { await fetch('config.js?t=' + Date.now(), { cache: 'no-store' }); } catch (e) {}
+      await new Promise(r => setTimeout(r, 100));
+    }
+    removeEventListener('message', h);
+    for (const rolle of ['a', 'b']) {
+      const a = antworten[rolle];
+      melde('Freunde: Spieler ' + rolle.toUpperCase(), !!(a && a.ok), a ? a.detail : 'keine Rückmeldung (Zeitüberschreitung)');
+    }
+    const summe = document.getElementById('summe');
+    summe.textContent = 'ERGEBNIS: ' + ok + ' bestanden, ' + fehl + ' fehlgeschlagen';
+    summe.className = fehl ? 'fehl' : 'ok';
+  })();
+  </script>
+</body>
+</html>

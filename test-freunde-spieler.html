@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Freunde-Test: ein Spieler</title>
+  <style>body { margin: 0; background: #1d130c; } #log { font: 12px Consolas, monospace; color: #f0cd7d; padding: 4px 8px; min-height: 16px; white-space: pre-wrap; } iframe { width: 100%; height: 900px; border: 0; display: block; }</style>
+</head>
+<body>
+  <!-- Ein automatischer Spieler für test-freunde.html. Meldet sich mit einem Test-Konto an und
+       bedient die echte freunde.html-Seite: A sucht B, schickt Anfrage, nimmt B als Freund in die
+       Liste, fordert heraus; B nimmt die Anfrage und später die Herausforderung an. Beide landen
+       über die bestehende Online-Mechanik (online.js) in derselben Partie. -->
+  <div id="log">startet …</div>
+  <iframe id="seite"></iframe>
+  <script src="config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.js"></script>
+  <script>
+  (async function () {
+    'use strict';
+    const q = new URLSearchParams(location.search);
+    const rolle = q.get('rolle'), lauf = q.get('lauf'), SPIEL = 'vier';
+    const client = window.DB && window.DB.client;
+    const log = t => { document.getElementById('log').textContent += '\nSpieler ' + rolle.toUpperCase() + ': ' + t; };
+    const melde = (ok, detail) => parent.postMessage({ typ: 'freunde-test', rolle: rolle, ok: ok, detail: detail }, '*');
+    // Jede Wartepause enthält eine echte Netzabfrage, damit der Test im Echtzeit-Tempo läuft (vgl. test-online-spieler.html).
+    const tick = async () => {
+      try { await fetch('config.js?t=' + Date.now(), { cache: 'no-store' }); } catch (e) {}
+      await new Promise(r => setTimeout(r, 100));
+    };
+    async function warte(fn, n, was) {
+      for (let i = 0; i < n; i++) { const r = fn(); if (r) return r; await tick(); }
+      throw new Error('Zeitüberschreitung: ' + was);
+    }
+
+    try {
+      if (!client) throw new Error('Supabase nicht eingerichtet');
+      const name = (rolle === 'a' ? 'FreundTestA-' : 'FreundTestB-') + lauf;
+      const email = 'test-freund-' + rolle + '-' + lauf + '@example.com', pw = 'test123456';
+      let r = await client.auth.signInWithPassword({ email: email, password: pw });
+      if (r.error) { r = await client.auth.signUp({ email: email, password: pw }); if (r.error) throw r.error; }
+      if (!r.data.session) throw new Error('keine Sitzung nach Anmeldung');
+      await client.from('profiles').upsert({ id: r.data.user.id, anzeigename: name });
+
+      log('angemeldet, lade freunde.html …');
+      const f = document.getElementById('seite');
+      let d = await new Promise(res => { f.onload = () => res(f.contentDocument); f.src = 'freunde.html'; });
+      await warte(() => d.getElementById('suchForm'), 150, 'Freunde-Seite (eingeloggt) nicht bereit');
+
+      if (rolle === 'a') {
+        // ---- A: B suchen, Anfrage schicken (B legt sein Profil evtl. erst noch an → wiederholt suchen) ----
+        log('suche Spieler B …');
+        let add = null;
+        for (let i = 0; i < 150 && !add; i++) {
+          d.getElementById('suchFeld').value = lauf;
+          d.getElementById('suchForm').dispatchEvent(new Event('submit', { cancelable: true }));
+          await tick();
+          add = d.querySelector('#suchErgebnis [data-add]');
+        }
+        if (!add) throw new Error('kein Suchtreffer für B (nach wiederholter Suche)');
+        add.click();
+        await warte(() => add.textContent.includes('✓') || add.textContent === 'Fehler', 100, 'Anfrage wurde nicht bestätigt');
+        if (add.textContent === 'Fehler') throw new Error('Freundschaftsanfrage fehlgeschlagen');
+        log('Anfrage an B gesendet, warte bis B sie annimmt …');
+
+        // ---- A: warten, bis B (durch den eigenen Reload-Poll der Seite) als Freund erscheint ----
+        const hf = await warte(() => d.querySelector('#freundeListe [data-hf]'), 400, 'B erscheint nicht in der Freundesliste');
+        log('B ist jetzt Freund – fordere heraus …');
+        hf.click();
+        await warte(() => d.getElementById('hfBox').classList.contains('offen'), 50, 'Herausfordern-Dialog öffnet nicht');
+        d.getElementById('hfSpiel').value = SPIEL;
+        d.getElementById('hfSpiel').dispatchEvent(new Event('change'));
+        d.getElementById('hfFarbe').value = 'w';   // A spielt Rot/Weiß-Seite (Herausforderer wählt)
+        d.getElementById('hfSenden').click();
+        await warte(() => !d.getElementById('hfBox').classList.contains('offen'), 100, 'Herausforderung wurde nicht gesendet');
+        log('Herausforderung gesendet, warte auf Annahme + automatische Weiterleitung …');
+
+        // ---- A: automatische Weiterleitung abwarten (freunde.js: pruefeEigeneAngenommen/Realtime) ----
+        await warte(() => /[?&]partie=/.test(f.contentWindow.location.href) && !/freunde\.html/.test(f.contentWindow.location.href), 300, 'A wurde nicht in die Partie weitergeleitet');
+        d = f.contentDocument;
+        await warte(() => d.getElementById('status'), 100, 'Spielseite lädt nicht');
+        log('in der Partie: ' + f.contentWindow.location.href);
+        await warte(() => d.getElementById('status').textContent.includes('Du bist am Zug'), 150, 'A ist nie am Zug');
+        d.querySelector('.vcol[data-c="0"]').click();
+        await warte(() => d.querySelectorAll('.scheibe').length >= 1, 50, 'eigener Zug wurde nicht übernommen');
+        log('ERFOLG: Partie erreicht, eigener Zug gespielt: ' + f.contentWindow.location.href);
+        melde(true, 'Partie erreicht, eigener Zug gespielt: ' + f.contentWindow.location.href);
+      } else {
+        // ---- B: eingehende Freundschaftsanfrage annehmen ----
+        log('warte auf Freundschaftsanfrage von A …');
+        const ok = await warte(() => d.querySelector('#anfragenEin [data-ok]'), 400, 'keine eingehende Anfrage von A');
+        ok.click();
+        log('Anfrage angenommen, warte auf Herausforderung …');
+
+        // ---- B: Herausforderungs-Einblendung (Toast) annehmen ----
+        const ja = await warte(() => d.querySelector('#toasts .einladung .ja'), 400, 'keine Herausforderungs-Einblendung erschienen');
+        const text = d.querySelector('#toasts .einladung').textContent;
+        ja.click();
+        log('Herausforderung angenommen (' + text.replace(/\s+/g, ' ').trim() + '), warte auf Weiterleitung …');
+
+        await warte(() => /[?&]partie=/.test(f.contentWindow.location.href) && !/freunde\.html/.test(f.contentWindow.location.href), 300, 'B wurde nicht in die Partie weitergeleitet');
+        d = f.contentDocument;
+        await warte(() => d.getElementById('status'), 100, 'Spielseite lädt nicht');
+        log('in der Partie: ' + f.contentWindow.location.href);
+        await warte(() => d.getElementById('status').textContent.includes('Du bist am Zug'), 150, 'B ist nie am Zug');
+        d.querySelector('.vcol[data-c="1"]').click();
+        await warte(() => d.querySelectorAll('.scheibe').length >= 2, 50, 'eigener Zug wurde nicht übernommen');
+        log('ERFOLG: Partie erreicht, eigener Zug gespielt: ' + f.contentWindow.location.href);
+        melde(true, 'Partie erreicht, eigener Zug gespielt: ' + f.contentWindow.location.href);
+      }
+    } catch (e) {
+      log('FEHLER: ' + (e.message || e));
+      melde(false, e.message || String(e));
+    }
+  })();
+  </script>
+</body>
+</html>

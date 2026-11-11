@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rangliste – Spielesammlung</title>
+  <meta name="theme-color" content="#d2451e">
+  <link rel="preload" href="fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="zurueck" href="index.html">Alle Spiele</a>
+    <h1>Rangliste</h1>
+    <nav class="auth" id="authbar"></nav>
+  </header>
+  <main>
+    <div class="blatt">
+      <div class="blattkopf">
+        <p>Ergebnisse aus Online-Partien.</p>
+        <label class="f spielwahl">Spiel
+          <select id="spielwahl"></select>
+        </label>
+      </div>
+      <div id="inhalt"><p class="leer">Lade …</p></div>
+    </div>
+  </main>
+
+  <script src="config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.js"></script>
+  <script src="auth.js"></script>
+  <script src="freunde.js"></script>
+  <script src="games-registry.js"></script>
+  <script>
+  (function () {
+    'use strict';
+    const DB = window.DB, client = DB && DB.client;
+    const inhalt = document.getElementById('inhalt');
+    const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+    // Spielauswahl aus der Registry; Vorauswahl per ?spiel=…
+    const wahl = document.getElementById('spielwahl');
+    const spiele = (window.SPIELE || []).filter(s => s.online && s.status === 'fertig');
+    wahl.innerHTML = spiele.map(s => '<option value="' + esc(s.id) + '">' + esc(s.name) + '</option>').join('');
+    const vor = new URLSearchParams(location.search).get('spiel');
+    if (vor && spiele.some(s => s.id === vor)) wahl.value = vor;
+    wahl.onchange = laden;
+
+    async function laden() {
+      const spiel = wahl.value || 'schach';
+      inhalt.innerHTML = '<p class="leer">Lade …</p>';
+      if (!client) { inhalt.innerHTML = '<p class="leer">Online ist noch nicht eingerichtet (siehe SETUP.md).</p>'; return; }
+      const { data: stats, error } = await client.from('statistik').select('*').eq('spiel', spiel);
+      if (spiel !== wahl.value) return;   // inzwischen anderes Spiel gewählt
+      if (error) { inhalt.innerHTML = '<p class="leer">Fehler: ' + esc(error.message) + '</p>'; return; }
+      if (!stats || !stats.length) { inhalt.innerHTML = '<p class="leer">Noch keine Partien gespielt.</p>'; return; }
+
+      const ids = stats.map(s => s.nutzer_id);
+      const { data: profs } = await client.from('profiles').select('id,anzeigename').in('id', ids);
+      const name = {}; (profs || []).forEach(p => name[p.id] = p.anzeigename);
+      const me = await DB.nutzer();
+      const meId = me ? me.id : null;
+
+      // Punkte: Sieg 1, Remis 0,5. Sortierung danach.
+      stats.forEach(s => { s.punkte = s.siege + s.remis * 0.5; s.spiele = s.siege + s.niederlagen + s.remis; });
+      stats.sort((a, b) => b.punkte - a.punkte || b.siege - a.siege || a.spiele - b.spiele);
+
+      let rows = '';
+      stats.forEach((s, i) => {
+        const ich = s.nutzer_id === meId ? ' class="ich"' : '';
+        rows += '<tr' + ich + '>' +
+          '<td class="zahl">' + (i + 1) + '</td>' +
+          '<td>' + esc(name[s.nutzer_id] || 'Unbekannt') + '</td>' +
+          '<td class="zahl">' + (s.punkte % 1 ? s.punkte.toFixed(1) : s.punkte) + '</td>' +
+          '<td class="zahl">' + s.siege + '</td>' +
+          '<td class="zahl">' + s.remis + '</td>' +
+          '<td class="zahl">' + s.niederlagen + '</td>' +
+          '<td class="zahl">' + s.spiele + '</td>' +
+        '</tr>';
+      });
+      inhalt.innerHTML =
+        '<table class="rangliste"><thead><tr>' +
+        '<th class="zahl">#</th><th>Spieler</th><th class="zahl">Punkte</th>' +
+        '<th class="zahl">S</th><th class="zahl">U</th><th class="zahl">N</th><th class="zahl">Spiele</th>' +
+        '</tr></thead><tbody>' + rows + '</tbody></table>' +
+        '<p class="leer" style="font-size:.8rem">S = Siege, U = Unentschieden (Remis), N = Niederlagen</p>';
+    }
+
+    laden();
+  })();
+  </script>
+</body>
+</html>

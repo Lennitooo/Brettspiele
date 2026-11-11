@@ -1,0 +1,10 @@
+Schachfiguren (cburnett-Set)
+============================
+
+Diese SVG-Schachfiguren stammen von Colin M. L. Burnett ("cburnett")
+und wurden von Wikimedia Commons bezogen (Dateien "Chess_xxt45.svg").
+
+Lizenz: Mehrfachlizenz GFDL, BSD und GNU GPL v2+.
+Quelle: https://commons.wikimedia.org/wiki/Category:SVG_chess_pieces
+
+Verwendung in diesem Projekt: Darstellung der Spielfiguren auf dem Schachbrett.

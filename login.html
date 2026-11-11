@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Anmelden – Spielesammlung</title>
+  <meta name="theme-color" content="#d2451e">
+  <link rel="preload" href="fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="zurueck" href="index.html">Alle Spiele</a>
+    <h1>Anmelden</h1>
+  </header>
+  <main>
+    <div class="authcard">
+      <div class="tabs">
+        <button id="tabAnmelden" class="aktiv">Anmelden</button>
+        <button id="tabRegistrieren">Registrieren</button>
+      </div>
+
+      <form id="formAuth" autocomplete="on">
+        <label class="f" id="nameFeld" style="display:none">Anzeigename
+          <input type="text" id="anzeigename" maxlength="24" placeholder="z.B. Lennart">
+        </label>
+        <label class="f">E-Mail
+          <input type="email" id="email" required autocomplete="email">
+        </label>
+        <label class="f">Passwort
+          <input type="password" id="passwort" required minlength="6" autocomplete="current-password">
+        </label>
+        <button type="submit" class="primary" id="absenden">Anmelden</button>
+        <p id="meldung" class="meldung"></p>
+      </form>
+
+      <p id="hinweisSetup" class="meldung" style="display:none">
+        Online ist noch nicht eingerichtet. Siehe <b>SETUP.md</b> im Projektordner.
+      </p>
+    </div>
+  </main>
+
+  <script src="config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.js"></script>
+  <script src="auth.js"></script>
+  <script>
+  (function () {
+    'use strict';
+    const $ = id => document.getElementById(id);
+    let modus = 'anmelden'; // oder 'registrieren'
+
+    if (!window.Auth || !window.Auth.bereit) {
+      $('formAuth').style.display = 'none';
+      $('hinweisSetup').style.display = 'block';
+      document.querySelector('.tabs').style.display = 'none';
+    }
+
+    function setModus(m) {
+      modus = m;
+      const reg = m === 'registrieren';
+      $('tabAnmelden').classList.toggle('aktiv', !reg);
+      $('tabRegistrieren').classList.toggle('aktiv', reg);
+      $('nameFeld').style.display = reg ? '' : 'none';
+      $('absenden').textContent = reg ? 'Konto erstellen' : 'Anmelden';
+      $('passwort').setAttribute('autocomplete', reg ? 'new-password' : 'current-password');
+      $('meldung').textContent = '';
+    }
+    $('tabAnmelden').onclick = () => setModus('anmelden');
+    $('tabRegistrieren').onclick = () => setModus('registrieren');
+
+    $('formAuth').onsubmit = async e => {
+      e.preventDefault();
+      const email = $('email').value.trim();
+      const pw = $('passwort').value;
+      const name = $('anzeigename').value.trim();
+      const m = $('meldung');
+      m.className = 'meldung';
+      $('absenden').disabled = true;
+      try {
+        if (modus === 'registrieren') {
+          if (!name) throw new Error('Bitte einen Anzeigenamen wählen.');
+          await window.Auth.registrieren(email, pw, name);
+        } else {
+          await window.Auth.anmelden(email, pw);
+        }
+        m.textContent = 'Erfolgreich – weiter geht’s …';
+        m.classList.add('ok');
+        setTimeout(() => location.href = 'index.html', 600);
+      } catch (err) {
+        m.textContent = 'Fehler: ' + (err.message || err);
+        m.classList.add('fehler');
+        $('absenden').disabled = false;
+      }
+    };
+  })();
+  </script>
+</body>
+</html>

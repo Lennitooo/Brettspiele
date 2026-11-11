@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Online-Tests – Brettspiele</title>
+  <style>
+    body { font-family: ui-monospace, Consolas, monospace; background: #1d130c; color: #f4e9d6; padding: 20px; }
+    .ok { color: #a7d06a; } .fehl { color: #ff9a8a; font-weight: 700; }
+    h1 { font-size: 1.2rem; } #summe { font-size: 1.1rem; margin: 12px 0; } p { color: #c9bda8; max-width: 70ch; }
+    .paar { display: flex; gap: 12px; margin-top: 16px; } .paar iframe { flex: 1; height: 780px; border: 1px solid #5c4028; min-width: 0; }
+  </style>
+</head>
+<body>
+  <h1>Online-Tests (zwei angemeldete Spieler spielen gegeneinander)</h1>
+  <p>Links erstellt Spieler A eine Partie, rechts tritt Spieler B bei; beide klicken auf den echten Spielseiten.
+     Achtung: Jeder Lauf legt zwei Test-Konten (test-…@example.com) und Einträge in der Rangliste an.
+     Ein einzelnes Spiel testen: <code>?spiel=schach</code>, <code>vier</code>, <code>dame</code> oder <code>muehle</code>.</p>
+  <div id="summe">läuft …</div>
+  <div id="out"></div>
+  <script>
+  (async function () {
+    'use strict';
+    const out = document.getElementById('out');
+    let ok = 0, fehl = 0;
+    function melde(name, pass, msg) {
+      if (pass) ok++; else fehl++;
+      const d = document.createElement('div');
+      d.className = pass ? 'ok' : 'fehl';
+      d.textContent = (pass ? 'OK   ' : 'FEHL ') + name + (msg ? ' – ' + msg : '');
+      out.appendChild(d);
+    }
+    // Spieler B läuft unter der anderen Adresse desselben Servers → eigene Anmeldung.
+    const andere = location.hostname === 'localhost' ? '127.0.0.1' : 'localhost';
+    const basisB = location.protocol + '//' + andere + (location.port ? ':' + location.port : '') + location.pathname.replace(/[^/]*$/, '');
+    const nur = new URLSearchParams(location.search).get('spiel');
+    const SPIELE = nur ? [nur] : ['schach', 'vier', 'dame', 'muehle'];
+    const ERWARTET = { vier: { a: 'Du gewinnst!', b: 'Gegner gewinnt.' } };
+
+    for (const spiel of SPIELE) {
+      const lauf = Date.now().toString(36) + spiel;
+      const antworten = {};
+      const h = e => { if (e.data && e.data.typ === 'online-test') antworten[e.data.rolle] = e.data; };
+      addEventListener('message', h);
+      const paar = document.createElement('div');
+      paar.className = 'paar';
+      const q = '?spiel=' + spiel + '&lauf=' + lauf + '&rolle=';
+      paar.innerHTML = '<iframe src="test-online-spieler.html' + q + 'a"></iframe><iframe src="' + basisB + 'test-online-spieler.html' + q + 'b"></iframe>';
+      document.body.appendChild(paar);
+      // Aktiv warten (mit echter Netzabfrage je Runde), damit der Test im Echtzeit-Tempo bleibt,
+      // auch wenn ein Spieler schon fertig ist. Höchstens rund 2 Minuten.
+      for (let i = 0; i < 800 && !(antworten.a && antworten.b); i++) {
+        try { await fetch('config.js?t=' + Date.now(), { cache: 'no-store' }); } catch (e) {}
+        await new Promise(r => setTimeout(r, 100));
+      }
+      removeEventListener('message', h);
+      for (const rolle of ['a', 'b']) {
+        const a = antworten[rolle];
+        let pass = !!(a && a.ok), msg = a ? a.detail : 'keine Rückmeldung (Zeitüberschreitung)';
+        if (pass && ERWARTET[spiel] && a.detail !== ERWARTET[spiel][rolle]) { pass = false; msg = 'erwartet „' + ERWARTET[spiel][rolle] + '", erhalten „' + a.detail + '"'; }
+        melde(spiel + ': Spieler ' + rolle.toUpperCase(), pass, msg);
+      }
+    }
+    const summe = document.getElementById('summe');
+    summe.textContent = 'ERGEBNIS: ' + ok + ' bestanden, ' + fehl + ' fehlgeschlagen';
+    summe.className = fehl ? 'fehl' : 'ok';
+  })();
+  </script>
+</body>
+</html>

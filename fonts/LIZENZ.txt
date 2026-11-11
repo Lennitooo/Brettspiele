@@ -1,0 +1,6 @@
+Archivo (variable Schrift)
+==========================
+
+Schrift von Omnibus-Type, bezogen ueber Fontsource (jsDelivr).
+Lizenz: SIL Open Font License 1.1 (https://openfontlicense.org).
+Datei: archivo.woff2 (lateinischer Zeichensatz, Achsen Gewicht und Breite).
